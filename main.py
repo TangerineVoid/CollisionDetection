@@ -17,7 +17,8 @@ gamma = 0.9#9  # Discount factor for past rewards
 max_steps_per_episode = 1000#10000
 geometry_segments =  ext_trajectory.shape[0]
 eps = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 1.0
-num_inputs = 2 # state and one angle
+# num_inputs = 2 # state and one angle
+num_inputs = 5 # state, one angle, and the displacement vector
 num_actions = 3
 num_hidden = 128
 
@@ -241,6 +242,7 @@ while True:  # Run until solved
         fig.update_traces(x=np.array(env.mod_trajectory)[:,0], y=np.array(env.mod_trajectory)[:,1], z=np.array(env.mod_trajectory)[:,2], selector=dict(name='Trajectory'))
         fig.show()
       lastIndex = lastIndex + process_step
+      env.last_index = env.process_index
       # print('step: ',timestep,'state: ',state, 'index: ', lastIndex, 'collision: ', collision, 'reward: ', reward)
       rt = env.continue_process(lastIndex)
       data = {

@@ -4,10 +4,11 @@ import open3d as o3d
 
 class Environment:
   # This class represents an environment for reinforcement learning.
-  def __init__(self, initial_state=None, process_index = 0, index_array=None, trajectory=None, geometry=None, dcgeometry=None, dclaser=None, dcfilament=None, vxmeltpool=None,
+  def __init__(self, initial_state=None, process_index=0, last_index=0, index_array=None, trajectory=None, geometry=None, dcgeometry=None, dclaser=None, dcfilament=None, vxmeltpool=None,
                voxel_size=0.5, translation=[0,0,0], TCP=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]):
     # vxgeometry=None,
     self.state = initial_state
+    self.last_index = last_index
     self.process_index = process_index
     self.index_array = index_array
     self.trajectory = trajectory
@@ -63,7 +64,12 @@ class Environment:
     # Calculate the reward for the action taken
     # reward = self._calculate_reward(self.state, action, next_state)
     # Update the current state
-    self.state = [int(collision), action + self.state[1]]
+    self.state = [int(collision), action + self.state[1], 0, 0, 0]
+    if self.process_index > 0:
+      step = self.process_index-self.last_index
+      print(step)
+      diff_trajectory = self.mod_trajectory[self.process_index,:] - self.mod_trajectory[self.process_index-step,:]
+      self.state[2:] = diff_trajectory
     return self.state, reward, collision
 
   def check_Collision(self):
@@ -86,11 +92,14 @@ class Environment:
 
   def continue_process(self,step):
     print('continue process ', step)
+
     if step != 0:
       # This is to avoid an issue when failing to find the anwer in n steps in
       # the episode, this deformed the geometry and failed to find a collision
+      self.last_index = self.process_index
       self.process_index = step #self.process_index +
     if self.process_index > np.shape(self.mod_trajectory)[0]:
+      self.last_index = self.process_index
       self.process_index = np.shape(self.mod_trajectory)[0]
       print("It has been reached the end of the process")
       return 0
@@ -120,7 +129,6 @@ class Environment:
     self.mod_TCP = np.array(copy.deepcopy(self.TCP))
     self.mod_geometry = copy.deepcopy(self.geometry)
     self.mod_trajectory = copy.deepcopy(self.trajectory)
-    self.state = [0,0]
     self.mod_vxgeometry = None #copy.deepcopy(self.vxgeometry)
     # Identify which indexes have the desired process index
     idx = np.where(self.index_array == self.process_index)[0]
@@ -145,6 +153,13 @@ class Environment:
     # self.mod_geometry = HT(self.mod_geometry.transpose(), [0,0,0], self.translation, [0,0,0], 1)
     # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
     self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
+    self.state = [0, 0, 0, 0, 0]
+    if self.process_index > 0:
+      step = self.process_index - self.last_index
+      print(step)
+      diff_trajectory = self.mod_trajectory[self.process_index, :] - self.mod_trajectory[self.process_index - step, :]
+      self.state[2:] = diff_trajectory
+    # self.state = [0,0]
     return self.state
 
   def _updateTCP(self, TCP, R):
