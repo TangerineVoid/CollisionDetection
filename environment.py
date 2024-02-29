@@ -1,0 +1,174 @@
+import copy
+import numpy as np
+import open3d as o3d
+
+class Environment:
+  # This class represents an environment for reinforcement learning.
+  def __init__(self, initial_state=None, process_index = 0, index_array=None, trajectory=None, geometry=None, dcgeometry=None, dclaser=None, dcfilament=None, vxmeltpool=None,
+               voxel_size=0.5, translation=[0,0,0], TCP=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]):
+    # vxgeometry=None,
+    self.state = initial_state
+    self.process_index = process_index
+    self.index_array = index_array
+    self.trajectory = trajectory
+    self.geometry = geometry
+    # self.vxgeometry = vxgeometry
+    self.voxel_size = voxel_size
+    self.dcgeometry = dcgeometry
+
+    self.translation = translation
+
+    self.mod_geometry = copy.deepcopy(self.geometry)
+    self.mod_trajectory = copy.deepcopy(self.trajectory)
+    # self.mod_vxgeometry = copy.deepcopy(self.vxgeometry)
+    self.mod_dcgeometry = copy.deepcopy(self.dcgeometry)
+
+    self.dclaser = dclaser
+    self.dcfilament = dcfilament
+    self.vxmeltpool = vxmeltpool
+    self.TCP = TCP
+    self.mod_TCP = copy.deepcopy(self.TCP)
+
+  def step(self, action):
+    # Takes an action and returns the next state and reward. Args: action: An action chosen by the agent. Returns: A tuple of (next_state, reward).
+    # Update the state based on the action taken
+    # next_state = self._update_state(action)
+    past_collision = self.check_Collision()
+    idx = np.where(self.index_array == self.process_index)[0]
+    idx = idx[-1]
+    self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0,action,0], [0,0,0], [0,0,0], 1)[0])[:idx,:3]
+    self.mod_trajectory = (self._HT(self.mod_trajectory.transpose(), [0,action,0], [0,0,0], [0,0,0], 1)[0])[:idx,:3]
+
+    TCP = np.array([self.mod_TCP[:3,3]]).transpose()#np.vstack([self.mod_TCP[:3,3],[0,0,0]])
+    TCP,Rotation_Matrix,_,_ = self._HT(TCP, [0,action,0], [0,0,0], [0,0,0], 1)
+    self.mod_TCP = self._updateTCP(TCP,Rotation_Matrix)
+    # self.mod_geometry = HT(self.mod_geometry.transpose(), [0,action,0], self.translation, [0,0,0], 1)#[:idx,:3]
+    # self.mod_trajectory = HT(self.mod_trajectory.transpose(), [0,action,0], self.translation, [0,0,0], 1)
+    self.mod_dcgeometry = o3d.geometry.PointCloud()
+    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
+    # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
+    # ------------------------------------------------------------------------
+    # Specify the voxel size
+    voxel_size = self.voxel_size
+
+    # COLLISION DETECTION
+    # ------------------------------------------------------------------------
+    collision = self.check_Collision()
+    if collision == 1 and past_collision == collision and action == 0:
+      reward = -1
+    elif collision == 1:
+      reward = -0.5
+    elif collision == 0:
+      reward = 1
+    # Calculate the reward for the action taken
+    # reward = self._calculate_reward(self.state, action, next_state)
+    # Update the current state
+    self.state = [int(collision), action + self.state[1]]
+    return self.state, reward, collision
+
+  def check_Collision(self):
+    # COLLISION DETECTION
+    # ------------------------------------------------------------------------
+    self.mod_vxgeometry = o3d.geometry.VoxelGrid.create_from_point_cloud(self.mod_dcgeometry, voxel_size=self.voxel_size)
+    # Collisions between melt pool sphere and laser-filament
+    collision_ccd_laser = np.array(self.vxmeltpool.check_if_included(self.dclaser.points))
+    collision_ccd_filament = np.array(self.vxmeltpool.check_if_included(self.dcfilament.points))
+    # Collisions between deposited geometry and laser-filament
+    collision_pcd_laser = np.array(self.mod_vxgeometry.check_if_included(self.dclaser.points))
+    collision_pcd_filament = np.array(self.mod_vxgeometry.check_if_included(self.dcfilament.points))
+
+    collision_laser = collision_pcd_laser ^ (collision_ccd_laser & collision_pcd_laser)
+    collision_filament = collision_pcd_filament ^ (collision_ccd_filament & collision_pcd_filament)
+    # print(any(collision_filament), any(collision_laser))
+    collision = int(any(collision_laser) or any(collision_filament))
+    # print('collision: ', collision)
+    return collision
+
+  def continue_process(self,step):
+    print('continue process ', step)
+    if step != 0:
+      # This is to avoid an issue when failing to find the anwer in n steps in
+      # the episode, this deformed the geometry and failed to find a collision
+      self.process_index = step #self.process_index +
+    if self.process_index > np.shape(self.mod_trajectory)[0]:
+      self.process_index = np.shape(self.mod_trajectory)[0]
+      print("It has been reached the end of the process")
+      return 0
+    # Identify which indexes have the desired process index
+    idx = np.where(self.index_array == self.process_index)[0]
+    # Select the last index so we select all the elements
+    idx = idx[-1]
+    # print(step, self.process_index)
+    dx = self.mod_trajectory[self.process_index,0]
+    dy = self.mod_trajectory[self.process_index,1]
+    dz = self.mod_trajectory[self.process_index,2]
+    if self.process_index > 0 and step > 0:
+      dx = dx-self.mod_trajectory[self.process_index-step,0]
+      dy = dy-self.mod_trajectory[self.process_index-step,1]
+      dz = dz-self.mod_trajectory[self.process_index-step,2]
+    translation = [dx*-1, dy*-1, dz*-1]
+    self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0,0,0], translation, [0,0,0], 1)[0])[:idx,:3]
+    # self.mod_TCP = HT(self.mod_TCP.transpose(), [0,0,0], translation, [0,0,0], 1)
+    self.mod_dcgeometry = o3d.geometry.PointCloud()
+    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
+    # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
+    self.translation = translation
+    # print(np.shape(self.mod_geometry),np.shape(self.mod_dcgeometry.points))
+    return 1
+
+  def reset(self):
+    self.mod_TCP = np.array(copy.deepcopy(self.TCP))
+    self.mod_geometry = copy.deepcopy(self.geometry)
+    self.mod_trajectory = copy.deepcopy(self.trajectory)
+    self.state = [0,0]
+    self.mod_vxgeometry = None #copy.deepcopy(self.vxgeometry)
+    # Identify which indexes have the desired process index
+    idx = np.where(self.index_array == self.process_index)[0]
+    # Select the last index so we select all the elements
+    idx = idx[-1]
+
+    self.mod_dcgeometry = o3d.geometry.PointCloud()
+    dx = self.mod_trajectory[self.process_index,0]
+    dy = self.mod_trajectory[self.process_index,1]
+    dz = self.mod_trajectory[self.process_index,2]
+    # self.process_index = 0
+    # if self.process_index > 0 and step > 0:
+    #   dx = dx-self.mod_trajectory[self.process_index-step,0]
+    #   dy = dy-self.mod_trajectory[self.process_index-step,1]
+    #   dz = dz-self.mod_trajectory[self.process_index-step,2]
+    translation = [dx*-1, dy*-1, dz*-1]
+    self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0,0,0], translation, [0,0,0], 1)[0])[:idx,:3]
+    self.mod_trajectory = (self._HT(self.mod_trajectory.transpose(), [0,0,0], translation, [0,0,0], 1)[0])[:idx,:3]
+    TCP = np.array([self.mod_TCP[:3,3]]).transpose()#np.vstack([self.mod_TCP[:3,3],[0,0,0]])
+    TCP,Rotation_Matrix,_,_ = self._HT(TCP, [0,0,0], translation, [0,0,0], 1)
+    self.mod_TCP = self._updateTCP(TCP,Rotation_Matrix)
+    # self.mod_geometry = HT(self.mod_geometry.transpose(), [0,0,0], self.translation, [0,0,0], 1)
+    # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
+    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
+    return self.state
+
+  def _updateTCP(self, TCP, R):
+    mod_TCP = np.zeros((4, 4))
+    Rold = self.mod_TCP[:3, :3]
+    mod_TCP[:3, :3] = np.dot(R,Rold)
+    mod_TCP[:3,3] = TCP
+    mod_TCP[3,3] = 1
+    return mod_TCP
+
+  def _HT(self, arr, rotation, translation, offset, scale):
+    # Apply scaling and offset
+    arr[:3, :] = arr[:3, :] * scale + np.array([offset]).transpose()
+    arr = np.vstack([arr, np.ones(arr.shape[1])])
+    # Create rotation matrices
+    theta_x, theta_y, theta_z = np.radians(rotation)
+    Rx = np.array([[1, 0, 0], [0, np.cos(theta_x), -np.sin(theta_x)], [0, np.sin(theta_x), np.cos(theta_x)]])
+    Ry = np.array([[np.cos(theta_y), 0, np.sin(theta_y)], [0, 1, 0], [-np.sin(theta_y), 0, np.cos(theta_y)]])
+    Rz = np.array([[np.cos(theta_z), -np.sin(theta_z), 0], [np.sin(theta_z), np.cos(theta_z), 0], [0, 0, 1]])
+    # Combine rotation matrices
+    R = np.dot(np.dot(Rx, Ry), Rz)
+    # Construct homogeneous transformation matrix
+    T = np.array(translation)
+    H = np.vstack([np.hstack([R, T.reshape(-1, 1)]), np.array([0, 0, 0, scale])])
+    # Apply transformation to arr
+    arr = np.dot(H, arr).transpose()
+    return arr[:,:3], R, T, H
