@@ -33,8 +33,8 @@ class Environment:
   def step(self, action):
     # Takes an action and returns the next state and reward. Args: action: An action chosen by the agent. Returns: A tuple of (next_state, reward).
     # Update the state based on the action taken
-    # next_state = self._update_state(action)
-    past_collision = self.check_Collision()
+    past_collision,past_collision_laser,past_collision_filament = self.check_Collision()
+
     idx = np.where(self.index_array == self.process_index)[0]
     idx = idx[-1]
     self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0,action,0], [0,0,0], [0,0,0], 1)[0])[:idx,:3]
@@ -43,18 +43,26 @@ class Environment:
     TCP = np.array([self.mod_TCP[:3,3]]).transpose()#np.vstack([self.mod_TCP[:3,3],[0,0,0]])
     TCP,Rotation_Matrix,_,_ = self._HT(TCP, [0,action,0], [0,0,0], [0,0,0], 1)
     self.mod_TCP = self._updateTCP(TCP,Rotation_Matrix)
-    # self.mod_geometry = HT(self.mod_geometry.transpose(), [0,action,0], self.translation, [0,0,0], 1)#[:idx,:3]
-    # self.mod_trajectory = HT(self.mod_trajectory.transpose(), [0,action,0], self.translation, [0,0,0], 1)
     self.mod_dcgeometry = o3d.geometry.PointCloud()
     self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
-    # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
     # ------------------------------------------------------------------------
     # Specify the voxel size
     voxel_size = self.voxel_size
 
     # COLLISION DETECTION
     # ------------------------------------------------------------------------
-    collision = self.check_Collision()
+    collision,collision_laser,collision_filament = self.check_Collision()
+
+    # If new collisions were created, the state is set to the previous state, negating any effect the agent's decision took into the environment
+    # if collision_filament-past_collision_filament == 1:
+    #   self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0, -action, 0], [0, 0, 0], [0, 0, 0], 1)[0])[:idx,:3]
+    #   self.mod_trajectory = (self._HT(self.mod_trajectory.transpose(), [0, -action, 0], [0, 0, 0], [0, 0, 0], 1)[0])[:idx, :3]
+    #
+    #   TCP = np.array([self.mod_TCP[:3, 3]]).transpose()  # np.vstack([self.mod_TCP[:3,3],[0,0,0]])
+    #   TCP, Rotation_Matrix, _, _ = self._HT(TCP, [0, -action, 0], [0, 0, 0], [0, 0, 0], 1)
+    #   self.mod_TCP = self._updateTCP(TCP, Rotation_Matrix)
+    #   self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx, :3])
+    #   action = 0
     if collision == 1 and past_collision == collision and action == 0:
       reward = -1
     elif collision == 1:
@@ -64,10 +72,10 @@ class Environment:
     # Calculate the reward for the action taken
     # reward = self._calculate_reward(self.state, action, next_state)
     # Update the current state
-    self.state = [int(collision), action + self.state[1], 0, 0, 0]
+    self.state = [collision, action + self.state[1], 0, 0, 0]
     if self.process_index > 0:
       step = self.process_index-self.last_index
-      print(step)
+      # print(step, self.mod_trajectory[self.process_index,:], self.mod_trajectory[self.process_index - step,:])
       diff_trajectory = self.mod_trajectory[self.process_index,:] - self.mod_trajectory[self.process_index-step,:]
       self.state[2:] = diff_trajectory
     return self.state, reward, collision
@@ -86,9 +94,11 @@ class Environment:
     collision_laser = collision_pcd_laser ^ (collision_ccd_laser & collision_pcd_laser)
     collision_filament = collision_pcd_filament ^ (collision_ccd_filament & collision_pcd_filament)
     # print(any(collision_filament), any(collision_laser))
-    collision = int(any(collision_laser) or any(collision_filament))
+    collision_laser = any(collision_laser)
+    collision_filament = any(collision_filament)
+    collision = int(collision_laser or collision_filament)
     # print('collision: ', collision)
-    return collision
+    return collision, int(collision_laser), int(collision_filament)
 
   def continue_process(self,step):
     print('continue process ', step)
@@ -153,10 +163,12 @@ class Environment:
     # self.mod_geometry = HT(self.mod_geometry.transpose(), [0,0,0], self.translation, [0,0,0], 1)
     # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
     self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
-    self.state = [0, 0, 0, 0, 0]
+    collision = self.check_Collision()[0]
+    # state [collision,angle,dx,dy,dz]
+    self.state = [collision, 0, 0, 0, 0]
     if self.process_index > 0:
       step = self.process_index - self.last_index
-      print(step)
+      # print(step, self.mod_trajectory[self.process_index,:], self.mod_trajectory[self.process_index - step,:])
       diff_trajectory = self.mod_trajectory[self.process_index, :] - self.mod_trajectory[self.process_index - step, :]
       self.state[2:] = diff_trajectory
     # self.state = [0,0]

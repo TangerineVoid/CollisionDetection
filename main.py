@@ -7,7 +7,6 @@ import tensorflow as tf
 import keras
 from keras import layers
 
-
 # Enable/Disable Plot
 Plot = False
 # Enable/Disable Save Results to txt
@@ -109,13 +108,12 @@ episode_count = 0
 lastIndex = 0
 episode = 0
 process_step = 20
-angle_step = 5
+angle_step = 10
 while True:  # Run until solved
     print(env.process_index)
     state = env.reset()
     # This needs to reset the piece on each iteration
     env.process_index = lastIndex
-
     episode_reward = 0
     angletotal = 0
     # process_index = 0
@@ -142,39 +140,40 @@ while True:  # Run until solved
       #           )
       # fig.add_traces(data=[pltPiece,pltLastPoint])
       fig.show()
+    # collision = env.check_Collision()[0]
     with tf.GradientTape() as tape:
         for timestep in range(1, max_steps_per_episode):
-            # collision = env.check_Collision()
-            state = tf.convert_to_tensor(state)
-            state = tf.expand_dims(state, 0)
-
+            statetf = tf.convert_to_tensor(state)
+            statetf = tf.expand_dims(statetf, 0)
             # Predict action probabilities and estimated future rewards
             # from environment state
-            action_probs, critic_value = model(state)
+            action_probs, critic_value = model(statetf)
             critic_value_history.append(critic_value[0, 0])
-
-            # Sample action from action probability distribution
-            action = np.random.choice(num_actions, p=np.squeeze(action_probs))
-            # print(action_probs)
-            action_probs_history.append(tf.math.log(action_probs[0, action]))
+            # Avoid changing angle if there is no collision
+            if state[0] == 0:
+                action = 2
+            else:
+                # Sample action from action probability distribution
+                action = np.random.choice(num_actions, p=np.squeeze(action_probs))
             if action == 2:
               angle_change = 0
             elif action == 1:
               angle_change = -angle_step
             elif action == 0:
               angle_change = angle_step
-
+            action_probs_history.append(tf.math.log(action_probs[0, action]))
             angle = angle_change
             angletotal = angletotal + angle
             state, reward, collision = env.step(angle)
             data = {
-                "episode" : episode_count,
-                "step" : timestep,
-                "state" : state,
-                "index" : lastIndex,
-                "collision" : collision,
-                "reward" : reward,
-                "TCP" : env.mod_TCP.reshape((4,4)).tolist() #env.mod_trajectory[0,:].tolist()
+                "episode": episode_count,
+                "step": timestep,
+                "action": action,
+                "reward": reward,
+                "state": state,
+                "index": lastIndex,
+                "collision": collision,
+                "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
             }
             save_data2txt("training.txt", data)
             rewards_history.append(reward)
@@ -246,14 +245,15 @@ while True:  # Run until solved
       # print('step: ',timestep,'state: ',state, 'index: ', lastIndex, 'collision: ', collision, 'reward: ', reward)
       rt = env.continue_process(lastIndex)
       data = {
-                "episode" : episode_count,
-                "step" : timestep,
-                "state" : state,
-                "index" : lastIndex,
-                "collision" : collision,
-                "reward" : reward,
-                "TCP" : env.mod_TCP.reshape((4,4)).tolist()#env.mod_trajectory[0,:].tolist()
-            }
+          "episode": episode_count,
+          "step": timestep,
+          "action": action,
+          "reward": reward,
+          "state": state,
+          "index": lastIndex,
+          "collision": collision,
+          "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
+      }
       # save_data2txt("angles.txt", [f"{lastIndex}, {state[1]}, {env.mod_TCP.reshape(3)}"])
       save_data2txt("results.txt", data)
       print("disque no hay colision")

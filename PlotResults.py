@@ -4,10 +4,12 @@ from init import *
 import plotly.graph_objects as go
 import pandas as pd
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+
 # GENERATE VIDEO OPTIONS
 # ------------------------------------------------------------------------
 save_video = False
 Plot = True
+
 # READ DATA FROM FILE
 # ------------------------------------------------------------------------
 read_data = True
@@ -18,9 +20,10 @@ if read_data:
   states = np.array(df['state'].tolist())
   angles = np.array(states[:,1])
   TCP = np.array(df['TCP'].tolist())
+
 # SETUP PLOT
 # ------------------------------------------------------------------------
-if Plot:
+if Plot or save_video:
   # Plot configuration
   fig = go.Figure()
   layout = dict(
@@ -109,13 +112,14 @@ for timestep in range(0, max_steps_per_episode):
   if read_data:
     lastAngle = angles[timestep]
     env.step(lastAngle)
-  if Plot:
+  if Plot or save_video:
     # print(TCP[timestep,:,3], vectors[timestep,:])
     fig.update_traces(x=np.array(env.mod_dcgeometry.points)[:,0], y=np.array(env.mod_dcgeometry.points)[:,1], z=np.array(env.mod_dcgeometry.points)[:,2], selector=dict(name='Piece'))
     v = [np.array(vectors[timestep,0])-np.array(TCP[timestep,0,3]),np.array(vectors[timestep,1])-np.array(TCP[timestep,1,3]),np.array(vectors[timestep,2])-np.array(TCP[timestep,2,3])]
     v = 1*(v/np.linalg.norm(v))
     fig.update_traces(x=np.array(TCP[timestep,0,3]), y=np.array(TCP[timestep,1,3]), z=np.array(TCP[timestep,2,3]), u=np.array(v[0]), v=np.array(v[1]), w=np.array(v[2]), selector=dict(name='TCP'))
-    fig.show()
+    if Plot:
+        fig.show()
     # raise ValueError('Test 1')
   if read_data:
     lastIndex = int(indexes[timestep])
@@ -131,5 +135,8 @@ for timestep in range(0, max_steps_per_episode):
     frames.append(frame)
 if save_video:
   # quantity_frames = len(frames)
-  clip = ImageSequenceClip(frames, fps=2)  # Adjust FPS as needed
+  fps = 2
+  print("Saving video ...")
+  print(f'Number of frames {len(frames)}. Time of video: {frames/fps} s')
+  clip = ImageSequenceClip(frames, fps=fps)  # Adjust FPS as needed
   clip.write_videofile("my_animation.mp4", codec="libx264", audio=False)
