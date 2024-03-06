@@ -58,7 +58,10 @@ def generate_point_cloud_from_coordinates(coordinates, diameter, num_points):
             v1 = v1/np.linalg.norm(v1)
             v2 = coord-coordinates[c-1]
             v2 = v2 / np.linalg.norm(v2)
-            vector = v1-(-1*v2)
+            if np.all(v1 != (-1*v2)):
+                vector = v1-(-1*v2)
+            else:
+                vector = v1
         elif c == 0:
             vector = coordinates[c+1]-coord
         elif c == len(coordinates):

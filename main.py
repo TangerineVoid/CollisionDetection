@@ -82,13 +82,13 @@ if Plot:
                   name='Trajectory',
                   marker=dict(size=2, color=('green'))
               )
-  # pltTCP= go.Scatter3d(
-  #                 x=np.array(env.TCP)[:,0], y=np.array(env.TCP)[:,1], z=np.array(env.TCP)[:,2],
-  #                 mode='markers',
-  #                 name='Trajectoryt',
-  #                 marker=dict(size=2, color=('green'))
-  #             )
-  fig.add_traces(data=[pltLaser,pltFilament,pltTrajectory])
+  pltTCP= go.Scatter3d(
+                  x=[np.array(env.TCP)[0, 3]], y=[np.array(env.TCP)[1, 3]], z=[np.array(env.TCP)[2, 3]],
+                  mode='markers',
+                  name='TCP',
+                  marker=dict(size=10, color=('cyan'))
+              )
+  fig.add_traces(data=[pltLaser,pltFilament,pltTrajectory,pltTCP])
   fig.add_annotation(text=f"episode_count = 0", showarrow = False)
   fig.add_annotation(text=f"timestep = 0", yshift=-10, showarrow = False)
   fig.update_layout(layout)
@@ -110,36 +110,25 @@ episode = 0
 process_step = 20
 angle_step = 10
 while True:  # Run until solved
-    print(env.process_index)
+    # print(env.process_index)
     state = env.reset()
     # This needs to reset the piece on each iteration
     env.process_index = lastIndex
     episode_reward = 0
     angletotal = 0
-    # process_index = 0
-    # state, reward, collision = env.step(0)
-    # env.continue_process(0)
     rt = 1
-    print('Current Geometry')
     if Plot:
-      fig.update_traces(x=np.array(env.mod_dcgeometry.points)[:,0], y=np.array(env.mod_dcgeometry.points)[:,1], z=np.array(env.mod_dcgeometry.points)[:,2], selector=dict(name='Piece'))
-      fig.update_traces(x=np.array(env.mod_dcgeometry.points)[-9:-1,0], y=np.array(env.mod_dcgeometry.points)[-9:-1,1], z=np.array(env.mod_dcgeometry.points)[-9:-1,2], selector=dict(name='Last Point'))
-      fig.update_traces(x=np.array(env.mod_trajectory)[:,0], y=np.array(env.mod_trajectory)[:,1], z=np.array(env.mod_trajectory)[:,2], selector=dict(name='Trajectory'))
-      # fig.data = fig.data[:-2]
-      # pltPiece = go.Scatter3d(
-      #         x=np.array(env.mod_dcgeometry.points)[:,0], y=np.array(env.mod_dcgeometry.points)[:,1], z=np.array(env.mod_dcgeometry.points)[:,2],
-      #         mode='markers',
-      #         name='Piece',
-      #         marker=dict(size=1, color=('black'))
-      #     )
-      # pltLastPoint = go.Scatter3d(
-      #               x=np.array(env.mod_dcgeometry.points)[-9:-1,0], y=np.array(env.mod_dcgeometry.points)[-9:-1,1], z=np.array(env.mod_dcgeometry.points)[-9:-1,2],
-      #               mode='markers',
-      #               name='Last Point',
-      #               marker=dict(size=2, color=('red'))
-      #           )
-      # fig.add_traces(data=[pltPiece,pltLastPoint])
-      fig.show()
+        fig.update_traces(x=np.array(env.mod_dcgeometry.points)[:, 0], y=np.array(env.mod_dcgeometry.points)[:, 1],
+                          z=np.array(env.mod_dcgeometry.points)[:, 2], selector=dict(name='Piece'))
+        fig.update_traces(x=np.array(env.mod_dcgeometry.points)[-9:-1, 0],
+                          y=np.array(env.mod_dcgeometry.points)[-9:-1, 1],
+                          z=np.array(env.mod_dcgeometry.points)[-9:-1, 2], selector=dict(name='Last Point'))
+        fig.update_traces(x=np.array(env.mod_trajectory)[:, 0], y=np.array(env.mod_trajectory)[:, 1],
+                          z=np.array(env.mod_trajectory)[:, 2], selector=dict(name='Trajectory'))
+        fig.update_traces(x=[np.array(env.mod_TCP)[0,3]], y=[np.array(env.mod_TCP)[1,3]],
+                          z=[np.array(env.mod_TCP)[2,3]], selector=dict(name='TCP'))
+        fig.show()
+    print('Current Geometry')
     # collision = env.check_Collision()[0]
     with tf.GradientTape() as tape:
         for timestep in range(1, max_steps_per_episode):
@@ -154,6 +143,8 @@ while True:  # Run until solved
                 action = 2
             else:
                 # Sample action from action probability distribution
+                if np.any(np.isnan(action_probs)):
+                    print("asda")
                 action = np.random.choice(num_actions, p=np.squeeze(action_probs))
             if action == 2:
               angle_change = 0
@@ -183,7 +174,6 @@ while True:  # Run until solved
               print('Collision:', collision)
               break
         print('finished for')
-        # print(env.process_index)
 
         # Update running reward to check condition for solving
         running_reward = 0.05 * episode_reward + (1 - 0.05) * running_reward
@@ -234,40 +224,36 @@ while True:  # Run until solved
     # Continue next step in process
     # Analyze next step in process
     if collision == 0:
-      # Update plot
-      if Plot:
-        fig.update_traces(x=np.array(env.mod_dcgeometry.points)[:,0], y=np.array(env.mod_dcgeometry.points)[:,1], z=np.array(env.mod_dcgeometry.points)[:,2], selector=dict(name='Piece'))
-        fig.update_traces(x=np.array(env.mod_dcgeometry.points)[-9:-1,0], y=np.array(env.mod_dcgeometry.points)[-9:-1,1], z=np.array(env.mod_dcgeometry.points)[-9:-1,2], selector=dict(name='Last Point'))
-        fig.update_traces(x=np.array(env.mod_trajectory)[:,0], y=np.array(env.mod_trajectory)[:,1], z=np.array(env.mod_trajectory)[:,2], selector=dict(name='Trajectory'))
-        fig.show()
-      lastIndex = lastIndex + process_step
-      env.last_index = env.process_index
-      # print('step: ',timestep,'state: ',state, 'index: ', lastIndex, 'collision: ', collision, 'reward: ', reward)
-      rt = env.continue_process(lastIndex)
-      data = {
-          "episode": episode_count,
-          "step": timestep,
-          "action": action,
-          "reward": reward,
-          "state": state,
-          "index": lastIndex,
-          "collision": collision,
-          "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
-      }
-      # save_data2txt("angles.txt", [f"{lastIndex}, {state[1]}, {env.mod_TCP.reshape(3)}"])
-      save_data2txt("results.txt", data)
-      print("disque no hay colision")
+        if Plot:
+            fig.update_traces(x=np.array(env.mod_dcgeometry.points)[:, 0], y=np.array(env.mod_dcgeometry.points)[:, 1],
+                              z=np.array(env.mod_dcgeometry.points)[:, 2], selector=dict(name='Piece'))
+            fig.update_traces(x=np.array(env.mod_dcgeometry.points)[-9:-1, 0],
+                              y=np.array(env.mod_dcgeometry.points)[-9:-1, 1],
+                              z=np.array(env.mod_dcgeometry.points)[-9:-1, 2], selector=dict(name='Last Point'))
+            fig.update_traces(x=np.array(env.mod_trajectory)[:, 0], y=np.array(env.mod_trajectory)[:, 1],
+                              z=np.array(env.mod_trajectory)[:, 2], selector=dict(name='Trajectory'))
+            fig.update_traces(x=[np.array(env.mod_TCP)[0,3]], y=[np.array(env.mod_TCP)[1,3]],
+                              z=[np.array(env.mod_TCP)[2,3]], selector=dict(name='TCP'))
+            fig.show()
+        lastIndex = lastIndex + process_step
+        env.last_index = env.process_index
+        rt = env.continue_process(lastIndex)
+        data = {
+        "episode": episode_count,
+        "step": timestep,
+        "action": action,
+        "reward": reward,
+        "state": state,
+        "index": lastIndex,
+        "collision": collision,
+        "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
+        }
+        save_data2txt("results.txt", data)
+        print("disque no hay colision")
     else:
-      env.continue_process(0)
+        env.continue_process(0)
     if rt == 0:
-      break
-    # state = env.reset()
-    # # This needs to reset the piece on each iteration
-    # env.process_index = 0
-    # episode_reward = 0
-    # angletotal = 0
-    # process_index = 0
-    # rt = 1
+         break
 
     # Log details
     episode_count += 1

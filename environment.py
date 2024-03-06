@@ -5,7 +5,7 @@ import open3d as o3d
 class Environment:
   # This class represents an environment for reinforcement learning.
   def __init__(self, initial_state=None, process_index=0, last_index=0, index_array=None, trajectory=None, geometry=None, dcgeometry=None, dclaser=None, dcfilament=None, vxmeltpool=None,
-               voxel_size=0.5, translation=[0,0,0], TCP=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]):
+               voxel_size=0.5, translation=[0,0,0], TCP=np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])):
     # vxgeometry=None,
     self.state = initial_state
     self.last_index = last_index
@@ -37,14 +37,15 @@ class Environment:
 
     idx = np.where(self.index_array == self.process_index)[0]
     idx = idx[-1]
-    self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0,action,0], [0,0,0], [0,0,0], 1)[0])[:idx,:3]
-    self.mod_trajectory = (self._HT(self.mod_trajectory.transpose(), [0,action,0], [0,0,0], [0,0,0], 1)[0])[:idx,:3]
-
+    self.mod_geometry = self._HT(self.mod_geometry.transpose(), [0,action,0], [0,0,0], [0,0,0], 1)[0]
+    mod_geometry = self.mod_geometry[:idx, :3]
+    self.mod_trajectory = self._HT(self.mod_trajectory.transpose(), [0,action,0], [0,0,0], [0,0,0], 1)[0]
+    mod_trajectory = self.mod_trajectory[:idx, :3]
     TCP = np.array([self.mod_TCP[:3,3]]).transpose()#np.vstack([self.mod_TCP[:3,3],[0,0,0]])
     TCP,Rotation_Matrix,_,_ = self._HT(TCP, [0,action,0], [0,0,0], [0,0,0], 1)
     self.mod_TCP = self._updateTCP(TCP,Rotation_Matrix)
-    self.mod_dcgeometry = o3d.geometry.PointCloud()
-    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
+    # self.mod_dcgeometry = o3d.geometry.PointCloud()
+    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(mod_geometry[:,:3])
     # ------------------------------------------------------------------------
     # Specify the voxel size
     voxel_size = self.voxel_size
@@ -72,17 +73,26 @@ class Environment:
     # Calculate the reward for the action taken
     # reward = self._calculate_reward(self.state, action, next_state)
     # Update the current state
+    dx = self.mod_trajectory[self.process_index, 0]
+    dy = self.mod_trajectory[self.process_index, 1]
+    dz = self.mod_trajectory[self.process_index, 2]
+    # self.process_index = 0
+    if self.process_index > 0 != self.last_index > 0:
+      dx = dx - self.mod_trajectory[self.last_index, 0]
+      dy = dy - self.mod_trajectory[self.last_index, 1]
+      dz = dz - self.mod_trajectory[self.last_index, 2]
+    translation = [dx * -1, dy * -1, dz * -1]
+    # print(f"state step, action {action}, self.state anterior {self.state[1]}")
     self.state = [collision, action + self.state[1], 0, 0, 0]
     if self.process_index > 0:
-      step = self.process_index-self.last_index
-      # print(step, self.mod_trajectory[self.process_index,:], self.mod_trajectory[self.process_index - step,:])
-      diff_trajectory = self.mod_trajectory[self.process_index,:] - self.mod_trajectory[self.process_index-step,:]
-      self.state[2:] = diff_trajectory
+      self.state[2:] = translation
     return self.state, reward, collision
 
   def check_Collision(self):
     # COLLISION DETECTION
     # ------------------------------------------------------------------------
+    idx = np.where(self.index_array == self.process_index)[0]
+    idx = idx[-1]
     self.mod_vxgeometry = o3d.geometry.VoxelGrid.create_from_point_cloud(self.mod_dcgeometry, voxel_size=self.voxel_size)
     # Collisions between melt pool sphere and laser-filament
     collision_ccd_laser = np.array(self.vxmeltpool.check_if_included(self.dclaser.points))
@@ -107,7 +117,7 @@ class Environment:
       # This is to avoid an issue when failing to find the anwer in n steps in
       # the episode, this deformed the geometry and failed to find a collision
       self.last_index = self.process_index
-      self.process_index = step #self.process_index +
+      self.process_index = step
     if self.process_index > np.shape(self.mod_trajectory)[0]:
       self.last_index = self.process_index
       self.process_index = np.shape(self.mod_trajectory)[0]
@@ -126,52 +136,46 @@ class Environment:
       dy = dy-self.mod_trajectory[self.process_index-step,1]
       dz = dz-self.mod_trajectory[self.process_index-step,2]
     translation = [dx*-1, dy*-1, dz*-1]
-    self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0,0,0], translation, [0,0,0], 1)[0])[:idx,:3]
-    # self.mod_TCP = HT(self.mod_TCP.transpose(), [0,0,0], translation, [0,0,0], 1)
-    self.mod_dcgeometry = o3d.geometry.PointCloud()
-    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
+    # self.mod_geometry = self._HT(self.mod_geometry.transpose(), [0,0,0], translation, [0,0,0], 1)[0]
+    # mod_geometry = self.mod_geometry[:idx, :3]
+    # # self.mod_TCP = HT(self.mod_TCP.transpose(), [0,0,0], translation, [0,0,0], 1)
+    # # self.mod_dcgeometry = o3d.geometry.PointCloud()
+    # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(mod_geometry[:,:3])
     # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
     self.translation = translation
     # print(np.shape(self.mod_geometry),np.shape(self.mod_dcgeometry.points))
     return 1
 
   def reset(self):
-    self.mod_TCP = np.array(copy.deepcopy(self.TCP))
-    self.mod_geometry = copy.deepcopy(self.geometry)
-    self.mod_trajectory = copy.deepcopy(self.trajectory)
-    self.mod_vxgeometry = None #copy.deepcopy(self.vxgeometry)
-    # Identify which indexes have the desired process index
+    # self.mod_TCP = np.array(copy.deepcopy(self.TCP))
+    # Identify which indexes have the desired process index to select the segment of workpiece
     idx = np.where(self.index_array == self.process_index)[0]
     # Select the last index so we select all the elements
     idx = idx[-1]
 
-    self.mod_dcgeometry = o3d.geometry.PointCloud()
+    # self.mod_dcgeometry = o3d.geometry.PointCloud()
     dx = self.mod_trajectory[self.process_index,0]
     dy = self.mod_trajectory[self.process_index,1]
     dz = self.mod_trajectory[self.process_index,2]
     # self.process_index = 0
-    # if self.process_index > 0 and step > 0:
-    #   dx = dx-self.mod_trajectory[self.process_index-step,0]
-    #   dy = dy-self.mod_trajectory[self.process_index-step,1]
-    #   dz = dz-self.mod_trajectory[self.process_index-step,2]
+    if self.process_index > 0 != self.last_index > 0:
+      dx = dx-self.mod_trajectory[self.last_index,0]
+      dy = dy-self.mod_trajectory[self.last_index,1]
+      dz = dz-self.mod_trajectory[self.last_index,2]
     translation = [dx*-1, dy*-1, dz*-1]
-    self.mod_geometry = (self._HT(self.mod_geometry.transpose(), [0,0,0], translation, [0,0,0], 1)[0])[:idx,:3]
-    self.mod_trajectory = (self._HT(self.mod_trajectory.transpose(), [0,0,0], translation, [0,0,0], 1)[0])[:idx,:3]
-    TCP = np.array([self.mod_TCP[:3,3]]).transpose()#np.vstack([self.mod_TCP[:3,3],[0,0,0]])
+    self.mod_geometry = self._HT(self.mod_geometry.transpose(), [0,0,0], translation, [0,0,0], 1)[0]
+    mod_geometry = self.mod_geometry[:idx,:3]
+    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(mod_geometry[:,:3])
+    self.mod_trajectory = self._HT(self.mod_trajectory.transpose(), [0,0,0], translation, [0,0,0], 1)[0]
+    TCP = np.array([self.mod_TCP[:3,3]]).transpose()
     TCP,Rotation_Matrix,_,_ = self._HT(TCP, [0,0,0], translation, [0,0,0], 1)
     self.mod_TCP = self._updateTCP(TCP,Rotation_Matrix)
-    # self.mod_geometry = HT(self.mod_geometry.transpose(), [0,0,0], self.translation, [0,0,0], 1)
-    # self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:idx,:3])
-    self.mod_dcgeometry.points = o3d.utility.Vector3dVector(self.mod_geometry[:,:3])
+    # print(TCP,self.mod_TCP)
     collision = self.check_Collision()[0]
-    # state [collision,angle,dx,dy,dz]
-    self.state = [collision, 0, 0, 0, 0]
+    self.state = [collision, self.state[1], 0, 0, 0]
+    # print(f"state reset, self.state 0")
     if self.process_index > 0:
-      step = self.process_index - self.last_index
-      # print(step, self.mod_trajectory[self.process_index,:], self.mod_trajectory[self.process_index - step,:])
-      diff_trajectory = self.mod_trajectory[self.process_index, :] - self.mod_trajectory[self.process_index - step, :]
-      self.state[2:] = diff_trajectory
-    # self.state = [0,0]
+      self.state[2:] = translation
     return self.state
 
   def _updateTCP(self, TCP, R):

@@ -7,8 +7,8 @@ from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 # GENERATE VIDEO OPTIONS
 # ------------------------------------------------------------------------
-save_video = False
-Plot = True
+save_video = True
+Plot = False
 
 # READ DATA FROM FILE
 # ------------------------------------------------------------------------
@@ -67,6 +67,7 @@ if Plot or save_video:
     scale = 1
     H = np.vstack([np.hstack([R, T.reshape(-1, 1)]), np.array([0, 0, 0, scale])])
     vectors.append(np.dot(H,arr))
+
   vectors = np.array(vectors)
   v = [np.array(vectors[0,0])-np.array(TCP[0,0,3]),np.array(vectors[0,1])-np.array(TCP[0,1,3]),np.array(vectors[0,2])-np.array(TCP[0,2,3])]
   v = 1*(v/np.linalg.norm(v))
@@ -92,13 +93,15 @@ if Plot or save_video:
   fig['data'][0]['name'] = 'Laser'
   fig['data'][1]['name'] = 'Filament'
 if save_video:
-  frames = []
-  frame =  plotly_fig2array(fig)
-  frames.append(frame)
+    frames = []
+    # print("registering frame")
+    # frame = plotly_fig2array(fig)
+    # print("Appending frame")
+    # frames.append(frame)
 if read_data:
-  max_steps_per_episode = indexes.shape[0]
+    max_steps_per_episode = indexes.shape[0]
 else:
-  max_steps_per_episode = ext_trajectory.shape[0] #10000
+    max_steps_per_episode = ext_trajectory.shape[0] #10000
 lastIndex = 0
 process_step = 2
 
@@ -111,6 +114,8 @@ for timestep in range(0, max_steps_per_episode):
   # Analyze next step in process
   if read_data:
     lastAngle = angles[timestep]
+    if timestep > 0:
+        lastAngle = angles[timestep]-angles[timestep-1]
     env.step(lastAngle)
   if Plot or save_video:
     # print(TCP[timestep,:,3], vectors[timestep,:])
@@ -131,12 +136,14 @@ for timestep in range(0, max_steps_per_episode):
   if rt == 0:
     break
   if save_video:
+    print("registering frame")
     frame =  plotly_fig2array(fig)
+    print("Appending frame")
     frames.append(frame)
 if save_video:
   # quantity_frames = len(frames)
-  fps = 2
+  fps = 1
   print("Saving video ...")
-  print(f'Number of frames {len(frames)}. Time of video: {frames/fps} s')
+  print(f'Number of frames {len(frames)}. Time of video: {len(frames)/fps} s')
   clip = ImageSequenceClip(frames, fps=fps)  # Adjust FPS as needed
   clip.write_videofile("my_animation.mp4", codec="libx264", audio=False)
