@@ -13,7 +13,7 @@ Plot = False
 Save = True
 # Configuration parameters for the whole setup
 gamma = 0.9#9  # Discount factor for past rewards
-max_steps_per_episode = 1000#10000
+max_steps_per_episode = 1000
 geometry_segments =  ext_trajectory.shape[0]
 eps = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 1.0
 # num_inputs = 2 # state and one angle

@@ -7,8 +7,8 @@ from environment import *
 # Workpiece Representation
 # ------------------------------------------------------------------------
 # Specify the path to your GCode file
-# gcode_file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle4_C.txt"
-gcode_file_path =  "C:/Users/salin/Documents/Doctorado/LaserOcclusion/UnitLattices_HalfBCC.txt"
+gcode_file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle4_C.txt"
+# gcode_file_path =  "C:/Users/salin/Documents/Doctorado/LaserOcclusion/UnitLattices_HalfBCC.txt"
 
 # Obtain coordinates
 _,points = parse_gcode_file(gcode_file_path)
