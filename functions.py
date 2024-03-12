@@ -5,34 +5,54 @@ from PIL import Image
 import json
 # Get coordinates from GCode file
 # Get coordinates from GCode file
-def parse_gcode_file(file_path):
-    # Regular expression pattern for extracting G, X, Y, and Z values
-    gcode_pattern = r'([GXYZ])(-?\d+\.?\d*)'
-    # Lists to store parsed values
-    g_values = []
-    x_values = []
-    y_values = []
-    z_values = []
-    # Read GCode data from the file
-    with open(file_path, 'r') as file:
-        gcode_lines = file.readlines()
-    # Extract values using regex
-    for line in gcode_lines:
-        # print(re.findall(gcode_pattern,line.upper()))
-        match = re.findall(gcode_pattern,line.upper())
-        # match = gcode_pattern.match(line)
-        if match:
-            for e in match:
-                if e[0]=='G':
-                    g_values.append(float(e[1]))
-                if e[0]=='X':
-                    x_values.append(float(e[1]))
-                if e[0]=='Y':
-                    y_values.append(float(e[1]))
-                if e[0]=='Z':
-                    z_values.append(float(e[1]))
-    commands = np.array([x_values,y_values,z_values]).transpose()
-    return g_values, commands
+def parse_file(file_path,type):
+    if type == 'gcode':
+        # Regular expression pattern for extracting G, X, Y, and Z values
+        # gcode_pattern = r'([GXYZ])(-?\d+\.?\d*)'
+        gcode_pattern = r'([GXYZ])(-?\d+\.?\d*)|(-?\d+\.?\d*)([GXYZ])'
+        # Lists to store parsed values
+        g_values = []
+        x_values = []
+        y_values = []
+        z_values = []
+        # Read GCode data from the file
+        with open(file_path, 'r') as file:
+            gcode_lines = file.readlines()
+        # Extract values using regex
+        for line in gcode_lines:
+            # print(re.findall(gcode_pattern,line.upper()))
+            match = re.findall(gcode_pattern,line.upper())
+            match = [tuple(filter(None, element)) for element in match]
+            # match = gcode_pattern.match(line)
+            if match:
+                for e in match:
+                    numbers = []
+                    commands = []
+                    for i,item in enumerate(e):
+                        try:
+                            float(item)
+                            numbers.append(item)
+                        except ValueError:
+                            commands.append(item)
+                    if commands[0]=='G':
+                        g_values.append(float(numbers[0]))
+                    if commands[0]=='X':
+                        x_values.append(float(numbers[0]))
+                    if commands[0]=='Y':
+                        y_values.append(float(numbers[0]))
+                    if commands[0]=='Z':
+                        z_values.append(float(numbers[0]))
+        center = [x_values[0]*np.ones(len(x_values)),y_values[0]*np.ones(len(y_values)),z_values[0]*np.ones(len(z_values))]
+        commands = np.array([x_values-center[0],y_values-center[1],z_values-center[2]]).transpose()
+    elif type == 'coordinates':
+        x_values = []
+        y_values = []
+        z_values = []
+        # Load data from the text file
+        data = np.loadtxt(file_path, delimiter=",")
+        center = np.array([data[0,0] * np.ones(len(data[:,0])), data[0,1] * np.ones(len(data[:,1])),data[0,2] * np.ones(len(data[:,2]))]).transpose()
+        commands = np.array([data[:,0]-center[:,0],data[:,1]-center[:,1],data[:,2]-center[:,2]]).transpose()
+    return commands
 
 # Interpolate GCode coordinates to increase resolution
 def extend_gcode(step, arr):

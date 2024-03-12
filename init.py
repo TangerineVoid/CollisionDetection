@@ -7,11 +7,16 @@ from environment import *
 # Workpiece Representation
 # ------------------------------------------------------------------------
 # Specify the path to your GCode file
-gcode_file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle4_C.txt"
-# gcode_file_path =  "C:/Users/salin/Documents/Doctorado/LaserOcclusion/UnitLattices_HalfBCC.txt"
+# file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle_C.txt"
+# file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Star.txt"
+# file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Square.txt"
+# file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/spiral_coordinates.txt"
+file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Truss_HalfBCC.txt"
+# file_path =  "C:/Users/salin/Documents/Doctorado/LaserOcclusion/UnitLattices_HalfBCC.txt"
 
 # Obtain coordinates
-_,points = parse_gcode_file(gcode_file_path)
+points = parse_file(file_path,'gcode')
+# points = parse_file(file_path,'coordinates')
 # Transform coordinates if needed
 points = HT(points.transpose(), [0,0,0], [0,0,0], [0,0,0], 1)[0]
 # Increase coordinates resolution
@@ -92,4 +97,4 @@ env.voxel_size = voxel_size
 env.dclaser = lcd
 env.dcfilament = fcd
 env.vxmeltpool = ccd_voxel_grid
-env.state = [0,0]
+env.state = [env.check_Collision()[0], env.action[1], 0, 0, 0]

@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from init import *
 
@@ -30,14 +29,12 @@ class MyApp:
         self.label = tk.Label(root, textvariable=self.label_EnvData, justify=tk.LEFT)
         self.label.pack(side=tk.RIGHT, padx=10, pady=10)
         # Setup plot
-        # self.ax.clear()
         self.ax.grid(False)
-        # Hide axes ticks
         self.ax.set_xticks([])
         self.ax.set_yticks([])
         self.ax.set_zticks([])
         self.ax.set_title("Environment Simulation")
-
+        self.show_trajectory = False
         # Plot system: Laser, Filament, Piece
         # If it is desired to downsamble
         ds = 20
@@ -47,6 +44,10 @@ class MyApp:
         self.pltFilament = self.ax.scatter(x, y, z, c='blue', label='Filament')
         x, y, z = [np.array(env.mod_dcgeometry.points)[::ds, 0], np.array(env.mod_dcgeometry.points)[::ds, 1], np.array(env.mod_dcgeometry.points)[::ds, 2]]
         self.pltPiece = self.ax.scatter(x, y, z, c='black', label='Piece')
+        if self.show_trajectory:
+            x, y, z = [np.array(env.mod_trajectory)[::ds, 0], np.array(env.mod_trajectory)[::ds, 1],
+                       np.array(env.mod_trajectory)[::ds, 2]]
+            self.pltTrajectory = self.ax.scatter(x, y, z, c='black', label='Trajectory')
         x, y, z = [np.array(env.mod_TCP)[0,3],np.array(env.mod_TCP)[1,3],np.array(env.mod_TCP)[2,3]]
         u, v, w = [np.dot(np.array(env.mod_TCP)[:3,:3],[0,0,1])[0],
                    np.dot(np.array(env.mod_TCP)[:3,:3],[0,0,1])[1],
@@ -68,12 +69,11 @@ class MyApp:
         self.root.bind('<Down>', lambda event: self.handle_key('Down'))
 
         # Buttons
-        button_commands = ['E', 'Q', 'W', 'S', 'D', 'A','Up','Down']
-        button_text = ['+Z','-Z','+Y','-Y','+X','-X', '+Step', '-Step']
+        button_commands = ['E', 'Q', 'W', 'S', 'D', 'A','Up','Down','Reset']
+        button_text = ['+Z','-Z','+Y','-Y','+X','-X', '+Step', '-Step','Reset']
         for i,command in enumerate(button_commands):
             button = ttk.Button(root, text=button_text[i], command=lambda c=command: self.handle_key(c))
             button.pack(side=tk.LEFT)
-
         # Bind window close event
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -98,18 +98,21 @@ class MyApp:
             env.step(-10,'Z')
         elif key == 'E':
             env.step(10, 'Z')
-        # else:
-        #     print("Invalid key pressed.")
+        elif key == 'Reset':
+            env.reset()
         # Update 3D plot based on the pressed key
         self.update_EnvData()
-        # self.ax.clear()
         self.ax.set_title("Environment Simulation")
         # Plot system: Laser, Filament, Piece
-        # If it is desired to downsamble
+        # If it is desired to downsample
         ds = 20
         x, y, z = [np.array(env.mod_dcgeometry.points)[::ds, 0], np.array(env.mod_dcgeometry.points)[::ds, 1],
                    np.array(env.mod_dcgeometry.points)[::ds, 2]]
         self.pltPiece._offsets3d = (x,y,z)  # Update only x and y positions
+        if self.show_trajectory:
+            x, y, z = [np.array(env.mod_trajectory)[::ds, 0], np.array(env.mod_trajectory)[::ds, 1],
+                       np.array(env.mod_trajectory)[::ds, 2]]
+            self.pltTrajectory._offsets3d = (x,y,z)
         x, y, z = [np.array(env.mod_TCP)[0, 3], np.array(env.mod_TCP)[1, 3], np.array(env.mod_TCP)[2, 3]]
         u, v, w = [np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[0],
                    np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[1],

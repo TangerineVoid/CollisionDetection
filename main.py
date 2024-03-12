@@ -22,8 +22,8 @@ num_actions = 3
 num_hidden = 128
 
 inputs = layers.Input(shape=(num_inputs,))
-common = layers.Dense(num_hidden, activation="relu")(inputs)
-action = layers.Dense(num_actions, activation="softmax")(common)
+common = layers.Dense(num_hidden, activation="softmax")(inputs)#activation="relu")(inputs)
+action = layers.Dense(num_actions, activation="softmax")(common)# activation="softmax")(common)
 critic = layers.Dense(1)(common)
 
 model = keras.Model(inputs=inputs, outputs=[action, critic])
@@ -105,17 +105,18 @@ if Plot:
 
 running_reward = 0
 episode_count = 0
-lastIndex = 0
-episode = 0
+process_index = env.process_index
+state = env.state
 process_step = 20
 angle_step = 10
+
 while True:  # Run until solved
-    # print(env.process_index)
-    state = env.reset()
-    # This needs to reset the piece on each iteration
-    env.process_index = lastIndex
     episode_reward = 0
-    angletotal = 0
+    if episode_count > 0 and collision == 1:
+        state = env.reset()
+        # This needs to reset the piece on each iteration
+        # env.process_index = lastIndex
+        # angletotal = 0
     rt = 1
     if Plot:
         fig.update_traces(x=np.array(env.mod_dcgeometry.points)[:, 0], y=np.array(env.mod_dcgeometry.points)[:, 1],
@@ -143,8 +144,8 @@ while True:  # Run until solved
                 action = 2
             else:
                 # Sample action from action probability distribution
-                if np.any(np.isnan(action_probs)):
-                    print("asda")
+                if any(np.isnan(np.array(np.squeeze(action_probs)))):
+                    print('jelp')
                 action = np.random.choice(num_actions, p=np.squeeze(action_probs))
             if action == 2:
               angle_change = 0
@@ -153,17 +154,17 @@ while True:  # Run until solved
             elif action == 0:
               angle_change = angle_step
             action_probs_history.append(tf.math.log(action_probs[0, action]))
-            angle = angle_change
-            angletotal = angletotal + angle
-            state, reward, collision = env.step(angle)
+            # angle = angle_change
+            # angletotal = angletotal + angle
+            state, reward, collision = env.step(angle_change,'Y')
             data = {
                 "episode": episode_count,
                 "step": timestep,
+                "index": process_index,
                 "action": action,
+                "collision": collision,
                 "reward": reward,
                 "state": state,
-                "index": lastIndex,
-                "collision": collision,
                 "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
             }
             save_data2txt("training.txt", data)
@@ -235,31 +236,31 @@ while True:  # Run until solved
             fig.update_traces(x=[np.array(env.mod_TCP)[0,3]], y=[np.array(env.mod_TCP)[1,3]],
                               z=[np.array(env.mod_TCP)[2,3]], selector=dict(name='TCP'))
             fig.show()
-        lastIndex = lastIndex + process_step
-        env.last_index = env.process_index
-        rt = env.continue_process(lastIndex)
+        rt,state = env.continue_process(process_step)
         data = {
-        "episode": episode_count,
-        "step": timestep,
-        "action": action,
-        "reward": reward,
-        "state": state,
-        "index": lastIndex,
-        "collision": collision,
-        "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
+            "episode": episode_count,
+            "step": timestep,
+            "index": process_index,
+            "action": action,
+            "collision": collision,
+            "reward": reward,
+            "state": state,
+            "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
         }
+        process_index = env.process_index
         save_data2txt("results.txt", data)
         print("disque no hay colision")
     else:
-        env.continue_process(0)
+        # env.continue_process(0)
+        pass
     if rt == 0:
-         break
+        break
 
     # Log details
     episode_count += 1
     # Stop Training sooner
     if episode_count % 10 == 0:
-        template = "running reward: {:.2f} at episode {}"
+        template = "running reward: {:.2f} atepisode {}"
         print(template.format(running_reward, episode_count))
 
     if running_reward > 10:  # Condition to consider the task solved
