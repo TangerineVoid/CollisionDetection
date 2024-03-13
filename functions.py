@@ -3,8 +3,8 @@ import numpy as np
 import io
 from PIL import Image
 import json
-# Get coordinates from GCode file
-# Get coordinates from GCode file
+
+# Get coordinates from file
 def parse_file(file_path,type):
     if type == 'gcode':
         # Regular expression pattern for extracting G, X, Y, and Z values

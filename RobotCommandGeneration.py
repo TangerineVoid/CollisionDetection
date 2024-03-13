@@ -34,7 +34,13 @@ def MinMov(js, js_old):
 js_init = np.matrix([[-0.0229],[-1.1132],[0.4312],[2.2528],[-1.5708],[-3.1186]])
 js = js_init
 c = [0]
-TCP[0,:3,3] = TCP[0,:3,3] + [-4.00016388e-01, -1.00016347e-01, 7.99987654e-01]
-HT = TCP[0]
-js = IK_func(HT, js_init)
-js = js.transpose()
+js_commands = [js]
+# print(FK_func(js_init,c))
+for t,tcp in enumerate(range(0,len(TCP))):
+    TCP[t,:3,3] = TCP[t,:3,3]*1e-03 + [-4.00016388e-01, -1.00016347e-01, 7.99987654e-01]
+    HT = TCP[t]
+    js = IK_func(HT, js)
+    # js = js.transpose()
+    # print(js.transpose())
+    js_commands.append(js[:])
+np.savetxt("FKCommands.txt", np.reshape(np.array(js_commands), (30,6)), delimiter=" ")

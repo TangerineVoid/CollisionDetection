@@ -1,6 +1,6 @@
 from functions import *
-import open3d as o3d
 from environment import *
+# import open3d as o3d
 
 # REPRESENT PHYSICAL SYSTEM
 # ------------------------------------------------------------------------
@@ -8,10 +8,11 @@ from environment import *
 # ------------------------------------------------------------------------
 # Specify the path to your GCode file
 # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle_C.txt"
+file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle4_C.txt"
 # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Star.txt"
 # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Square.txt"
 # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/spiral_coordinates.txt"
-file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Truss_HalfBCC.txt"
+# file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Truss_HalfBCC.txt"
 # file_path =  "C:/Users/salin/Documents/Doctorado/LaserOcclusion/UnitLattices_HalfBCC.txt"
 
 # Obtain coordinates

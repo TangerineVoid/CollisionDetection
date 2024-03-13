@@ -1,19 +1,20 @@
-from functions import *
-from environment import *
 from init import *
-import plotly.graph_objects as go
 import pandas as pd
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 # from matplotlib.animation import FuncAnimation,writers, FFMpegWriter
-from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+# from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+# import plotly.graph_objects as go
+# from functions import *
+# from environment import *
+# import numpy as np
 
 # GENERATE VIDEO OPTIONS
 # ------------------------------------------------------------------------
 save_video = True
 Plot = False
-
+show_beforeAgent = False
 
 # READ DATA FROM FILE
 # ------------------------------------------------------------------------
@@ -23,7 +24,7 @@ if read_data:
     df = pd.DataFrame(data)
     indexes = np.array(df['index'].tolist())
     states = np.array(df['state'].tolist())
-    angles = np.array(states[:,1])
+    angles = np.array(states[:,1]) if not show_beforeAgent else np.array(np.zeros_like(states[:,1]))
     TCP = np.array(df['TCP'].tolist())
 
 # FOR USING MATPLOTLIB:
