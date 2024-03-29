@@ -3,6 +3,7 @@ import numpy as np
 import io
 from PIL import Image
 import json
+import pandas as pd
 
 # Get coordinates from file
 def parse_file(file_path,type):
@@ -145,6 +146,22 @@ def save_data2txt(filename, data):
       # for c in coordinates:
       file.write("\n")  # Write coordinates in two columns
 
+def save_data2csv(filename):
+    data = read_data_from_file(f'{filename}')
+    df = pd.DataFrame(data)
+    try:
+        # Get the maximum length of any state array
+        max_state_len = max(len(x['state']) for x in data)
+        # Create new columns for state elements (up to max_state_len)
+        for i in range(max_state_len):
+            df[f"state_{i + 1}"] = df['state'].apply(lambda x: x[i] if len(x) > i else None)
+        # Drop the original state column
+        df.drop('state', axis=1, inplace=True)
+    except:
+        pass
+    df.to_csv(f'{filename}.csv', index=False)  # Avoid including index in CSV
+    # df.to_csv(f'{filename}.csv')
+
 def read_data_from_file(filename):
   data = []
   with open(filename, "r") as file:
@@ -177,3 +194,9 @@ def generate_sphere_point_cloud(radius, point_density):
         z.extend(r * np.outer(np.ones(np.size(theta)), np.cos(phi)).flatten())
 
     return np.array(x), np.array(y), np.array(z)
+
+def normalize_state(state,arr):
+    arr = np.where(np.array(arr) == 0, 1, arr)
+    state[1] = state[1]/1#arr[1]
+    state[2:] = (np.array(state[2:])/np.array(arr[2:])).tolist()
+    return state

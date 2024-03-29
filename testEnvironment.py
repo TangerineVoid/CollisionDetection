@@ -4,10 +4,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from init import *
 
+ext_trajectory,env,file_path,lcd,fcd = initialize()
+# save_data2csv("training.txt")
+# print("function called")
+
 # Errores pendientes:
 # Mostrar en Action los 3 angulos de movimiento, y agregarlo al estado.
-# El campo de collision no se está mostrando bien
-# Cuidado que puede formatear tu computador si no tienes las credenciales
 class MyApp:
     def __init__(self, root):
         self.root = root
@@ -35,15 +37,21 @@ class MyApp:
         self.ax.set_zticks([])
         self.ax.set_title("Environment Simulation")
         self.show_trajectory = False
+        self.show_meltpool = True
+        self.movetool = True
         # Plot system: Laser, Filament, Piece
         # If it is desired to downsamble
-        ds = 20
+        global ds
+        ds = 70
         x,y,z = [np.array(lcd.points)[::ds, 0],np.array(lcd.points)[::ds, 1],np.array(lcd.points)[::ds, 2]]
         self.pltLaser = self.ax.scatter(x, y, z, c='red', label='Laser')
         x, y, z = [np.array(fcd.points)[::ds, 0], np.array(fcd.points)[::ds, 1], np.array(fcd.points)[::ds, 2]]
         self.pltFilament = self.ax.scatter(x, y, z, c='blue', label='Filament')
         x, y, z = [np.array(env.mod_dcgeometry.points)[::ds, 0], np.array(env.mod_dcgeometry.points)[::ds, 1], np.array(env.mod_dcgeometry.points)[::ds, 2]]
         self.pltPiece = self.ax.scatter(x, y, z, c='black', label='Piece')
+        if self.show_meltpool:
+            x, y, z = [np.array(env.mod_dcmeltpool.points)[::ds, 0], np.array(env.mod_dcmeltpool.points)[::ds, 1], np.array(env.mod_dcmeltpool.points)[::ds, 2]]
+            self.pltMeltpool = self.ax.scatter(x, y, z, c='orange', label='Meltpool')
         if self.show_trajectory:
             x, y, z = [np.array(env.mod_trajectory)[::ds, 0], np.array(env.mod_trajectory)[::ds, 1],
                        np.array(env.mod_trajectory)[::ds, 2]]
@@ -83,21 +91,21 @@ class MyApp:
         # You can modify this function based on your specific needs
         print(f'Key pressed: {key}')
         if key == 'Up':
-            env.continue_process(20)
+            env.tool_continue_process(20) if self.movetool else env.continue_process(20)
         elif key == 'Down':
-            env.continue_process(-20)
+            env.tool_continue_process(-20) if self.movetool else env.continue_process(-20)
         elif key == 'A':
-            env.step(-10,'X')
+            env.tool_step(-10,'X') if self.movetool else env.step(-10,'X')
         elif key == 'D':
-            env.step(10, 'X')
+            env.tool_step(10, 'X') if self.movetool else env.step(10, 'X')
         elif key == 'S':
-            env.step(-10,'Y')
+            env.tool_step(-10,'Y') if self.movetool else env.step(-10,'Y')
         elif key == 'W':
-            env.step(10, 'Y')
+            env.tool_step(10, 'Y') if self.movetool else env.step(10, 'Y')
         elif key == 'Q':
-            env.step(-10,'Z')
+            env.tool_step(-10,'Z') if self.movetool else env.step(-10,'Z')
         elif key == 'E':
-            env.step(10, 'Z')
+            env.tool_step(10, 'Z') if self.movetool else env.step(10, 'Z')
         elif key == 'Reset':
             env.reset()
         # Update 3D plot based on the pressed key
@@ -105,22 +113,49 @@ class MyApp:
         self.ax.set_title("Environment Simulation")
         # Plot system: Laser, Filament, Piece
         # If it is desired to downsample
-        ds = 20
-        x, y, z = [np.array(env.mod_dcgeometry.points)[::ds, 0], np.array(env.mod_dcgeometry.points)[::ds, 1],
-                   np.array(env.mod_dcgeometry.points)[::ds, 2]]
-        self.pltPiece._offsets3d = (x,y,z)  # Update only x and y positions
-        if self.show_trajectory:
-            x, y, z = [np.array(env.mod_trajectory)[::ds, 0], np.array(env.mod_trajectory)[::ds, 1],
-                       np.array(env.mod_trajectory)[::ds, 2]]
-            self.pltTrajectory._offsets3d = (x,y,z)
-        x, y, z = [np.array(env.mod_TCP)[0, 3], np.array(env.mod_TCP)[1, 3], np.array(env.mod_TCP)[2, 3]]
-        u, v, w = [np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[0],
-                   np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[1],
-                   np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[2]]
-        self.TCP.remove()
-        self.TCP = self.ax.quiver(x, y, z, 3*u, 3*v, 3*w,  color='red')
+        # ds = 20
+        if self.movetool:
+            # start_time = time.time()
+            x, y, z = [np.array(env.mod_dcgeometry.points)[::ds, 0], np.array(env.mod_dcgeometry.points)[::ds, 1],
+                       np.array(env.mod_dcgeometry.points)[::ds, 2]]
+            self.pltPiece._offsets3d = (x, y, z)  # Update only x and y positions
+            x, y, z = [np.array(env.mod_laser)[::ds, 0], np.array(env.mod_laser)[::ds, 1],
+                       np.array(env.mod_laser)[::ds, 2]]
+            self.pltLaser._offsets3d = (x, y, z)  # Update only x and y positions
+            x, y, z = [np.array(env.mod_filament)[::ds, 0], np.array(env.mod_filament)[::ds, 1],
+                       np.array(env.mod_filament)[::ds, 2]]
+            self.pltFilament._offsets3d = (x, y, z)  # Update only x and y positions
+            if self.show_meltpool:
+                x, y, z = [np.array(env.mod_dcmeltpool.points)[::ds, 0], np.array(env.mod_dcmeltpool.points)[::ds, 1],
+                           np.array(env.mod_dcmeltpool.points)[::ds, 2]]
+                self.pltMeltpool._offsets3d = (x, y, z)
+            if self.show_trajectory:
+                x, y, z = [np.array(env.mod_trajectory)[::ds, 0], np.array(env.mod_trajectory)[::ds, 1],
+                           np.array(env.mod_trajectory)[::ds, 2]]
+                self.pltTrajectory._offsets3d = (x, y, z)
+            x, y, z = [np.array(env.mod_TCP)[0, 3], np.array(env.mod_TCP)[1, 3], np.array(env.mod_TCP)[2, 3]]
+            u, v, w = [np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[0],
+                       np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[1],
+                       np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[2]]
+            self.TCP.remove()
+            self.TCP = self.ax.quiver(x, y, z, 3 * u, 3 * v, 3 * w, color='red')
+        else:
+            x, y, z = [np.array(env.mod_dcgeometry.points)[::ds, 0], np.array(env.mod_dcgeometry.points)[::ds, 1],
+                       np.array(env.mod_dcgeometry.points)[::ds, 2]]
+            self.pltPiece._offsets3d = (x,y,z)  # Update only x and y positions
+            if self.show_trajectory:
+                x, y, z = [np.array(env.mod_trajectory)[::ds, 0], np.array(env.mod_trajectory)[::ds, 1],
+                           np.array(env.mod_trajectory)[::ds, 2]]
+                self.pltTrajectory._offsets3d = (x,y,z)
+            x, y, z = [np.array(env.mod_TCP)[0, 3], np.array(env.mod_TCP)[1, 3], np.array(env.mod_TCP)[2, 3]]
+            u, v, w = [np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[0],
+                       np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[1],
+                       np.dot(np.array(env.mod_TCP)[:3, :3], [0, 0, 1])[2]]
+            self.TCP.remove()
+            self.TCP = self.ax.quiver(x, y, z, 3*u, 3*v, 3*w,  color='red')
         self.ax.set_aspect('equal')
         self.canvas.draw()
+        # print("Finish plotting: ", time.time() - start_time)
 
     def update_EnvData(self):
         # Update the text label based on the pressed key or button
