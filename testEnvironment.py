@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from init import *
 
 ext_trajectory,env,file_path,lcd,fcd = initialize()
+date = time.strftime("%Y-%m-%d_%H-%M-%S")
 # save_data2csv("training.txt")
 # print("function called")
 
@@ -37,7 +38,7 @@ class MyApp:
         self.ax.set_zticks([])
         self.ax.set_title("Environment Simulation")
         self.show_trajectory = False
-        self.show_meltpool = True
+        self.show_meltpool = False
         self.movetool = True
         # Plot system: Laser, Filament, Piece
         # If it is desired to downsamble
@@ -91,23 +92,25 @@ class MyApp:
         # You can modify this function based on your specific needs
         print(f'Key pressed: {key}')
         if key == 'Up':
-            env.tool_continue_process(20) if self.movetool else env.continue_process(20)
+            env.my_tool_continue_process(20) if self.movetool else env.continue_process(20)
         elif key == 'Down':
-            env.tool_continue_process(-20) if self.movetool else env.continue_process(-20)
+            env.my_tool_continue_process(-20) if self.movetool else env.continue_process(-20)
         elif key == 'A':
-            env.tool_step(-10,'X') if self.movetool else env.step(-10,'X')
+            env.my_tool_step(-10,'X') if self.movetool else env.step(-10,'X')
         elif key == 'D':
-            env.tool_step(10, 'X') if self.movetool else env.step(10, 'X')
+            env.my_tool_step(10, 'X') if self.movetool else env.step(10, 'X')
         elif key == 'S':
-            env.tool_step(-10,'Y') if self.movetool else env.step(-10,'Y')
+            env.my_tool_step(-10,'Y') if self.movetool else env.step(-10,'Y')
         elif key == 'W':
-            env.tool_step(10, 'Y') if self.movetool else env.step(10, 'Y')
+            env.my_tool_step(10, 'Y') if self.movetool else env.step(10, 'Y')
         elif key == 'Q':
-            env.tool_step(-10,'Z') if self.movetool else env.step(-10,'Z')
+            env.my_tool_step(-10,'Z') if self.movetool else env.step(-10,'Z')
         elif key == 'E':
-            env.tool_step(10, 'Z') if self.movetool else env.step(10, 'Z')
+            env.my_tool_step(10, 'Z') if self.movetool else env.step(10, 'Z')
         elif key == 'Reset':
             env.reset()
+        self.update_plot()
+    def update_plot(self):
         # Update 3D plot based on the pressed key
         self.update_EnvData()
         self.ax.set_title("Environment Simulation")
@@ -171,8 +174,27 @@ class MyApp:
         # This function is called when the window is closed
         print("Closing the application.")
         self.root.destroy()
+def test_performance(step,action,delay):
+    app.movetool = False
+    start_time = time.time()
+    rt = env.tool_continue_process(step)[0] if app.movetool else env.continue_process(step)[0]
+    cp_time = time.time() - start_time
+    start_time = time.time()
+    env.tool_step(action, 'X') if app.movetool else env.step(action, 'X')
+    sp_time = time.time() - start_time
+    app.update_plot()
+    wk_size = np.array(env.dclaser.points).nbytes + np.array(env.dcfilament.points).nbytes + np.array(env.mod_dcmeltpool.points).nbytes if app.movetool else np.array(env.mod_dcgeometry.points).nbytes
+    data = {
+        "Continue Process Time": cp_time, "Step Time": sp_time, "Object size": wk_size,
+    }
+    save_data2txt(f"PerformanceTest_{date}.txt", data)
+    # Schedule the function to run again after a delay
+    if rt == 0: app.root.destroy()
+    root.after(delay, test_performance, step, action, delay)
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = MyApp(root)
+    test_performance(20,10,500)  # Call every 500 milliseconds (adjust as needed)
     root.mainloop()
+
