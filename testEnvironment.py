@@ -6,6 +6,9 @@ from init import *
 
 ext_trajectory,env,file_path,lcd,fcd = initialize()
 date = time.strftime("%Y-%m-%d_%H-%M-%S")
+# Process Parameters
+d_theta = 5
+d_L = 5
 # save_data2csv("training.txt")
 # print("function called")
 
@@ -19,6 +22,7 @@ class MyApp:
         # Matplotlib 3D figure
         self.figure = plt.figure()
         self.ax = self.figure.add_subplot(111, projection='3d')
+        # self.ax.view_init(45, 45, -45)
         self.canvas = FigureCanvasTkAgg(self.figure, master=root)
         self.canvas_widget = self.canvas.get_tk_widget()
         self.canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
@@ -39,7 +43,7 @@ class MyApp:
         self.ax.set_title("Environment Simulation")
         self.show_trajectory = False
         self.show_meltpool = False
-        self.movetool = True
+        self.movetool = False
         # Plot system: Laser, Filament, Piece
         # If it is desired to downsamble
         global ds
@@ -92,23 +96,23 @@ class MyApp:
         # You can modify this function based on your specific needs
         print(f'Key pressed: {key}')
         if key == 'Up':
-            env.my_tool_continue_process(20) if self.movetool else env.continue_process(20)
+            env.tool_continue_process(d_L) if self.movetool else env.continue_process(d_L)
         elif key == 'Down':
-            env.my_tool_continue_process(-20) if self.movetool else env.continue_process(-20)
+            env.tool_continue_process(-d_L) if self.movetool else env.continue_process(-d_L)
         elif key == 'A':
-            env.my_tool_step(-10,'X') if self.movetool else env.step(-10,'X')
+            env.tool_step(-d_theta,'X') if self.movetool else env.step(-d_theta,'X')
         elif key == 'D':
-            env.my_tool_step(10, 'X') if self.movetool else env.step(10, 'X')
+            env.tool_step(d_theta, 'X') if self.movetool else env.step(d_theta, 'X')
         elif key == 'S':
-            env.my_tool_step(-10,'Y') if self.movetool else env.step(-10,'Y')
+            env.tool_step(-d_theta,'Y') if self.movetool else env.step(-d_theta,'Y')
         elif key == 'W':
-            env.my_tool_step(10, 'Y') if self.movetool else env.step(10, 'Y')
+            env.tool_step(d_theta, 'Y') if self.movetool else env.step(d_theta, 'Y')
         elif key == 'Q':
-            env.my_tool_step(-10,'Z') if self.movetool else env.step(-10,'Z')
+            env.tool_step(-d_theta,'Z') if self.movetool else env.step(-d_theta,'Z')
         elif key == 'E':
-            env.my_tool_step(10, 'Z') if self.movetool else env.step(10, 'Z')
+            env.tool_step(d_theta, 'Z') if self.movetool else env.step(d_theta, 'Z')
         elif key == 'Reset':
-            env.reset()
+            env.tool_reset() if self.movetool else env.reset()
         self.update_plot()
     def update_plot(self):
         # Update 3D plot based on the pressed key
@@ -192,9 +196,13 @@ def test_performance(step,action,delay):
     if rt == 0: app.root.destroy()
     root.after(delay, test_performance, step, action, delay)
 
+def update_viewAngles(delay):
+    print(f'elev {format(app.ax.elev)}, azim {format(app.ax.azim)}, roll {format(app.ax.roll)}')
+    root.after(delay, update_viewAngles, delay)
 if __name__ == "__main__":
     root = tk.Tk()
     app = MyApp(root)
-    test_performance(20,10,500)  # Call every 500 milliseconds (adjust as needed)
+    # test_performance(20,10,500)  # Call every 500 milliseconds (adjust as needed)
+    update_viewAngles(500)
     root.mainloop()
 

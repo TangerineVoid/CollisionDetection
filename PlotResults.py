@@ -10,6 +10,8 @@ import matplotlib.animation as animation
 # from environment import *
 # import numpy as np
 
+ext_trajectory,env,file_path,lcd,fcd = initialize()
+
 # GENERATE VIDEO OPTIONS
 # ------------------------------------------------------------------------
 save_video = True
@@ -19,19 +21,37 @@ show_beforeAgent = False
 # READ DATA FROM FILE
 # ------------------------------------------------------------------------
 read_data = True
+folder_path = r'C:\Users\salin\PycharmProjects\CollisionDetection\\'
+file_name = 'Results_Truss_HalfBCC_RL-AC_5S3A_2024-03-30_19-53-55.txt'
 if read_data:
-    data = read_data_from_file("results.txt")
+    data = read_data_from_file(f'{folder_path}{file_name}')
     df = pd.DataFrame(data)
+    episode = np.array(df['episode'].tolist())
     indexes = np.array(df['index'].tolist())
+    action = np.array(df['action'].tolist())
+    reward = np.array(df['reward'].tolist())
     states = np.array(df['state'].tolist())
     angles = np.array(states[:,1]) if not show_beforeAgent else np.array(np.zeros_like(states[:,1]))
+    collision = np.array(states[:, 0])
     TCP = np.array(df['TCP'].tolist())
+    # data = read_data_from_file("results.txt")
+    # df = pd.DataFrame(data)
+    # indexes = np.array(df['index'].tolist())
+    # states = np.array(df['state'].tolist())
+    # angles = np.array(states[:,1]) if not show_beforeAgent else np.array(np.zeros_like(states[:,1]))
+    # TCP = np.array(df['TCP'].tolist())
 
 # FOR USING MATPLOTLIB:
 # SETUP PLOT
 # ------------------------------------------------------------------------
 figure = plt.figure()
 ax = figure.add_subplot(111, projection='3d')
+# Change camera angle
+# ax.view_init(elev=30, azim=-60, roll=0)
+# Filament POV
+ax.view_init(elev=56.3, azim=-180, roll=0)
+# Laser POV
+# ax.view_init(elev=23.6, azim=-180, roll=0)
 ax.grid(False)
 ax.set_xticks([])
 ax.set_yticks([])
@@ -96,7 +116,9 @@ anim = animation.FuncAnimation(figure, init_func=init, func=update, frames=index
 # writervideo = writers['ffmpeg']
 # writervideo = writervideo(fps=15, metadata=dict(artist='Me'), bitrate=1800)
 # writervideo = animation.FFMpegWriter(fps=60)
-anim.save(filename='animation.mp4', writer='ffmpeg')
+file_name = file_name.split('.')[0]
+video_name = f'animation_{file_name}.mp4'
+anim.save(filename=video_name, writer='ffmpeg')
 # anim.to_html5_video()
 # plt.show()
 

@@ -7,6 +7,11 @@ from keras import layers
 import time
 
 count = 0
+load_trainedModel = False
+save_model = False
+model_name = 'CDmodel.keras'
+run_time = time.time()
+print(f'Starting path planning solution at: {time.time()}')
 while count < 30:
     print(f"Solving iteration {count}")
     # Initialize variables
@@ -23,16 +28,24 @@ while count < 30:
     geometry_segments =  ext_trajectory.shape[0]
     eps = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 1.0
     # num_inputs = 2 # state and one angle
-    num_inputs = 5 # state, one angle, and the displacement vector
+    num_inputs = 5  # state, one angle, and the displacement vector
     num_actions = 3
     num_hidden = 128
-
-    inputs = layers.Input(shape=(num_inputs,))
-    common = layers.Dense(num_hidden, activation="softmax")(inputs)#activation="relu")(inputs)
-    action = layers.Dense(num_actions, activation="softmax")(common)# activation="softmax")(common)
-    critic = layers.Dense(1)(common)
-
-    model = keras.Model(inputs=inputs, outputs=[action, critic])
+    if not load_trainedModel:
+        inputs = layers.Input(shape=(num_inputs,))
+        common = layers.Dense(num_hidden, activation="softmax")(inputs)#activation="relu")(inputs)
+        action = layers.Dense(num_actions, activation="softmax")(common)# activation="softmax")(common)
+        critic = layers.Dense(1)(common)
+        model = keras.Model(inputs=inputs, outputs=[action, critic])
+    else:
+        try:
+            model = keras.models.load_model('CDmodel.keras')
+        except:
+            inputs = layers.Input(shape=(num_inputs,))
+            common = layers.Dense(num_hidden, activation="softmax")(inputs)  # activation="relu")(inputs)
+            action = layers.Dense(num_actions, activation="softmax")(common)  # activation="softmax")(common)
+            critic = layers.Dense(1)(common)
+            model = keras.Model(inputs=inputs, outputs=[action, critic])
 
     optimizer = keras.optimizers.Adam(learning_rate=0.01)
     huber_loss = keras.losses.Huber()
@@ -61,7 +74,8 @@ while count < 30:
     while True:  # Run until solved
         episode_reward = 0
         if episode_count > 0 and collision == 1:
-            state = env.reset()
+            # state = env.reset()
+            state = env.tool_reset()
             # This needs to reset the piece on each iteration
             # env.process_index = lastIndex
             # angletotal = 0
@@ -71,7 +85,8 @@ while count < 30:
         with tf.GradientTape() as tape:
             for timestep in range(1, max_steps_per_episode):
                 # statetf = tf.convert_to_tensor(state[:2])
-                norm_state = normalize_state(state,[1,360,rx,ry,rz])
+                # norm_state = normalize_state(state,[1,360,rx,ry,rz])
+                norm_state = state
                 statetf = tf.convert_to_tensor(norm_state)
                 statetf = tf.expand_dims(statetf, 0)
                 # Predict action probabilities and estimated future rewards
@@ -96,18 +111,19 @@ while count < 30:
                 # angle = angle_change
                 # angletotal = angletotal + angle
                 start_time = time.time()
-                state, reward, collision = env.step(angle_change,'Y')
+                # state, reward, collision = env.step(angle_change,'Y')
+                state, reward, collision = env.tool_step(angle_change,'Y')
                 if save_txt:
                     data = {
                         "ran time": time.time() - start_time,
                         "workpiece size": np.array(env.mod_dcgeometry.points).nbytes,
                         "episode": episode_count,
                         "step": timestep,
-                        "index": process_index,
+                        "Segment": process_index,
                         "action": action,
                         "collision": collision,
                         "reward": reward,
-                        "state": norm_state,#state,
+                        "state": np.array(norm_state).tolist(),#state,
                         "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
                     }
                     save_data2txt(f"Training_{file_name}_RL-AC_{num_inputs}S{num_actions}A_{date}.txt", data)
@@ -168,16 +184,17 @@ while count < 30:
         # Continue next step in process
         # Analyze next step in process
         if collision == 0:
-            rt,state = env.continue_process(process_step)
+            # rt,state = env.continue_process(process_step)
+            rt,state = env.tool_continue_process(process_step)
             if save_txt:
                 data = {
                     "episode": episode_count,
                     "step": timestep,
-                    "index": process_index,
+                    "Segment": process_index,
                     "action": action,
                     "collision": collision,
                     "reward": reward,
-                    "state": norm_state,#state,
+                    "state": np.array(norm_state).tolist(),#state,
                     "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
                 }
                 process_index = env.process_index
@@ -201,3 +218,9 @@ while count < 30:
         if running_reward > 10:  # Condition to consider the task solved
             print("Solved at episode {}!".format(episode_count))
             break
+    if save_model:
+        model.save(model_name)
+    # print(f'Training experiment run time = {time.time() - run_time}')
+print(f'Total training run time = {time.time()-run_time}')
+print(f'Finalizing path planning solution at: {time.time()}')
+model.summary()

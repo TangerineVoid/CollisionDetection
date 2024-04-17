@@ -95,7 +95,7 @@ class Environment:
         self.prev_action = np.add(self.prev_action, np.array(Rot).transpose())
         # self.prev_action[1] = self.prev_action[1]%360
         self.prev_action[1] = self.prev_action[1]%360 if self.prev_action[1] > 0 else self.prev_action[1]%-360
-        self.state = [collision, float(self.prev_action[1])%360, 0, 0, 0]
+        self.state = [collision, float(self.prev_action[1]), 0, 0, 0]
         if self.process_index > 0:
             self.state[2:] = translation#*np.full_like(translation,-1)#[0,0,0]#
         return self.state, reward, collision
@@ -121,6 +121,9 @@ class Environment:
         return collision, int(collision_laser), int(collision_filament)
 
     def continue_process(self, step):
+        step = int(np.floor(step*10/1)) # step_value = 0.1
+        # c = self.mod_trajectory[1:,:] - self.mod_trajectory[:len(self.mod_trajectory)-1,:]
+        # d = np.linalg.norm(c,axis=1)
         if step != 0:
             # This is to avoid an issue when failing to find the answer in n steps in
             # the episode, this deformed the geometry and failed to find a collision
@@ -157,8 +160,8 @@ class Environment:
             TCP = np.array([self.mod_TCP[:3, 3]]).transpose()
             TCP, Rotation_Matrix, _, _ = self._HT(TCP, [0, 0, 0], translation, [0, 0, 0], 1)
             self.mod_TCP = self._updateTCP(TCP, Rotation_Matrix)
-            # # Reset actions
-            # self.action = np.array([0, 0, 0]).transpose()
+            # Reset actions
+            self.action = np.array([0, 0, 0]).transpose()
             # Update state
             self.state = [self.check_Collision()[0], float(self.prev_action[1]), 0, 0, 0]
             if self.process_index > 0:
@@ -205,8 +208,10 @@ class Environment:
             TCP = np.array([self.mod_TCP[:3, 3]]).transpose()
             TCP, Rotation_Matrix, _, _ = self._HT(TCP, [0, 0, 0], translation, [0, 0, 0], 1)
             self.mod_TCP = self._updateTCP(TCP, Rotation_Matrix)
+            # Reset actions
+            self.action = np.array([0, 0, 0]).transpose()
             # Update state
-            print("getting collision")
+            # print("getting collision")
             self.state = [self.check_Collision()[0], float(self.prev_action[1]), 0, 0, 0]
             if self.process_index > 0:
                 self.state[2:] = translation*np.full_like(translation,-1)#[0,0,0]#
@@ -229,13 +234,13 @@ class Environment:
         dy = self.mod_trajectory[self.process_index, 1] - self.mod_trajectory[0, 1]
         dz = self.mod_trajectory[self.process_index, 2] - self.mod_trajectory[0, 2]
         # H = self._GetHT(Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)
-        H = self._GetHT(Rot, [0,0,0], np.array([dx,dy,dz])*-1, 1)
+        H = self._GetHT(Rot*np.full_like(Rot,-1), [0,0,0], np.array([dx,dy,dz])*-1, 1)
         self.dclaser = self.dclaser.transform(H)
         self.dcfilament = self.dcfilament.transform(H)
         # self.mod_laser = self._HT(self.mod_laser.transpose(), Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)[0]
         # self.mod_filament = self._HT(self.mod_filament.transpose(), Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)[0]
         # self.mod_dcmeltpool = self.mod_dcmeltpool.transform(H)
-        print("gotem")
+        # print("gotem")
         # mod_meltpool = self._HT(np.array(self.mod_dcmeltpool.points).transpose(), Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)[0]
         # self.mod_dcmeltpool.points = o3d.utility.Vector3dVector(mod_meltpool)
         # mod_meltpool = np.array(self.mod_dcmeltpool.points)
@@ -249,7 +254,7 @@ class Environment:
 
         # Compute TCP position and direction
         TCP = np.array([self.mod_TCP[:3, 3]]).transpose()
-        TCP, Rotation_Matrix, _, _ = self._HT(TCP, Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)
+        TCP, Rotation_Matrix, _, _ = self._HT(TCP, Rot*np.full_like(Rot,-1), [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)
         self.mod_TCP = self._updateTCP(TCP, Rotation_Matrix)
         # Define trajectory translation
         dx = self.mod_trajectory[self.process_index, 0] - self.mod_trajectory[self.last_index, 0]
@@ -267,6 +272,8 @@ class Environment:
             reward = 1
          # Update state
         self.prev_action = np.add(self.prev_action, np.array(Rot).transpose())
+        # self.state = [collision, float(self.prev_action[1]), 0, 0, 0]
+        self.prev_action[1] = self.prev_action[1] % 360 if self.prev_action[1] > 0 else self.prev_action[1] % -360
         self.state = [collision, float(self.prev_action[1]), 0, 0, 0]
         if self.process_index > 0:
             self.state[2:] = translation
@@ -317,7 +324,7 @@ class Environment:
             TCP, Rotation_Matrix, _, _ = self._HT(TCP, [0, 0, 0], translation, [0, 0, 0], 1)
             self.mod_TCP = self._updateTCP(TCP, Rotation_Matrix)
             # Update state
-            print("getting collision")
+            # print("getting collision")
             self.state = [self.check_Collision()[0], float(self.prev_action[1]), 0, 0, 0]
             if self.process_index > 0:
                 self.state[2:] = translation*np.full_like(translation,-1)#[0,0,0]#
@@ -353,7 +360,7 @@ class Environment:
         # self.mod_laser = self._HT(self.mod_laser.transpose(), Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)[0]
         # self.mod_filament = self._HT(self.mod_filament.transpose(), Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)[0]
         # self.mod_dcmeltpool = self.mod_dcmeltpool.transform(H)
-        print("gotem")
+        # print("gotem")
         # mod_meltpool = self._HT(np.array(self.mod_dcmeltpool.points).transpose(), Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)[0]
         # self.mod_dcmeltpool.points = o3d.utility.Vector3dVector(mod_meltpool)
         # mod_meltpool = np.array(self.mod_dcmeltpool.points)
@@ -416,12 +423,22 @@ class Environment:
         # Select the last index so we select all the elements
         idx = np.where(self.index_array == self.process_index)[0][-1]
         # Apply rotation to geometry, trajectory and TCP
-        self.mod_geometry = self._HT(self.mod_geometry.transpose(), self.action*-1, [0, 0, 0], [0, 0, 0], 1)[0]
+        # self.mod_geometry = self._HT(self.mod_geometry.transpose(), self.action*-1, [0, 0, 0], [0, 0, 0], 1)[0]
+        dx = self.mod_trajectory[self.process_index, 0] - self.mod_trajectory[0, 0]
+        dy = self.mod_trajectory[self.process_index, 1] - self.mod_trajectory[0, 1]
+        dz = self.mod_trajectory[self.process_index, 2] - self.mod_trajectory[0, 2]
+        H = self._GetHT(self.action, [0, 0, 0], np.array([dx, dy, dz]) * -1, 1)
+
+        # # H = self._GetHT(Rot, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)
+        # H = self._GetHT(Rot, [0, 0, 0], np.array([dx, dy, dz]) * -1, 1)
+        self.dclaser = self.dclaser.transform(H)
+        self.dcfilament = self.dcfilament.transform(H)
+        self.mod_dcmeltpool = self.mod_dcmeltpool.transform(H)
         mod_geometry = self.mod_geometry[:idx, :3]
         self.mod_dcgeometry.points = o3d.utility.Vector3dVector(mod_geometry[:, :3])
         # self.mod_trajectory = self._HT(self.mod_trajectory.transpose(), self.action*-1, [0, 0, 0], [0, 0, 0], 1)[0]
         TCP = np.array([self.mod_TCP[:3, 3]]).transpose()
-        TCP, Rotation_Matrix, _, _ = self._HT(TCP, self.action*-1, [0, 0, 0], [0, 0, 0], 1)
+        TCP, Rotation_Matrix, _, _ = self._HT(TCP, self.action, [dx,dy,dz], np.array([dx,dy,dz])*-1, 1)
         self.mod_TCP = self._updateTCP(TCP, Rotation_Matrix)
         # Reset actions
         self.prev_action = self.prev_action - self.action

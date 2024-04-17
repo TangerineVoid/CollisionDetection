@@ -11,9 +11,10 @@ def initialize():
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle_C.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle4_C.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Star.txt"
+    file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/HourGlass.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Square.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/spiral_coordinates.txt"
-    file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Truss_HalfBCC.txt"
+    # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Truss_HalfBCC.txt"
     # file_path =  "C:/Users/salin/Documents/Doctorado/LaserOcclusion/UnitLattices_HalfBCC.txt"
 
     # Obtain coordinates
@@ -22,7 +23,7 @@ def initialize():
     # Transform coordinates if needed
     points = HT(points.transpose(), [0,0,0], [0,0,0], [0,0,0], 1)[0]
     # Increase coordinates resolution
-    step_value = 0.1
+    step_value = 0.1 #mm
     points[:,2] = points[:,2]*-1
     ext_trajectory= extend_gcode(step_value, points)
     ext_points = generate_point_cloud_from_coordinates(ext_trajectory,1,90)
@@ -37,7 +38,7 @@ def initialize():
     # Laser Representation
     # ------------------------------------------------------------------------
     # initialize laser pointcloud instance
-    laser = np.array([[0,0,0],[-10,0,5]])
+    laser = np.array([[0,0,0],[-10,0,3.63970234266202]])#np.array([[0,0,0],[-10,0,5]])
     ext_laser= extend_gcode(np.linalg.norm(laser[1] - laser[0])/50, laser)
     ext_laser = generate_point_cloud_from_coordinates(ext_laser,0.1,90)
     lcd = o3d.geometry.PointCloud()
@@ -78,6 +79,7 @@ def initialize():
     env = Environment()
     env.index_array = ext_points[:,3] # Set group of indexes to select sections of geometry
     env.process_index = 0 # Set starting point on simulation
+    # env.process_index = 1600 # Set starting point on simulation
     # ------ Set trajectory data
     env.trajectory = ext_trajectory # Set trajectory
     env.mod_trajectory = env.trajectory # Set trajectory variable to be modified
@@ -94,13 +96,22 @@ def initialize():
     env.mod_dcgeometry.points = o3d.utility.Vector3dVector((env.mod_geometry[:idx, :3])[:,:3]) # Select portion of geometry to be shown depending on the starting index
     # ------ Set laser data
     env.dclaser = lcd # Set laser data cloud
+    if env.process_index != 0:
+        points = HT(np.array(lcd.points).transpose(), [0, 0, 0], ext_trajectory[env.process_index], [0, 0, 0], 1)[0]
+        lcd.points = o3d.utility.Vector3dVector(points)
     env.mod_laser = np.asarray(lcd.points) # Set laser data cloud to be modified
     env.voxel_size = voxel_size
     # ------ Set filament data
     env.dcfilament = fcd # Set laser data cloud
+    if env.process_index != 0:
+        points = HT(np.array(fcd.points).transpose(), [0, 0, 0], ext_trajectory[env.process_index], [0, 0, 0], 1)[0]
+        fcd.points = o3d.utility.Vector3dVector(points)
     env.mod_filament = np.asarray(fcd.points) # Set filament data cloud to be modified
     # ------ Set meltpool data
     env.dcmeltpool = ccd # Set meltpool data cloud
+    if env.process_index != 0:
+        points = HT(np.array(ccd.points).transpose(), [0, 0, 0], ext_trajectory[env.process_index], [0, 0, 0], 1)[0]
+        ccd.points = o3d.utility.Vector3dVector(points)
     env.mod_dcmeltpool = env.dcmeltpool # Set meltpool data cloud to be modified
     # ------ Check starting state
     env.state = [env.check_Collision()[0], env.action[1], 0, 0, 0]
