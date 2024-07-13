@@ -13,9 +13,9 @@ read_data = True
 post_process_version = 4
 # if read_data:
 # folder_path = "./"
-# folder_path = r'C:\Users\salin\Documents\Doctorado\Glass System\19\Different methods solutios\Random\\'
+folder_path = r'C:\Users\salin\Documents\Doctorado\Glass System\20\Training different geometries\test\2\spiral\\'
 # folder_path = r'C:\Users\salin\Documents\Doctorado\Glass System\19\Reloading Model test\Retrained Model\\'
-folder_path = r'C:\Users\salin\Documents\Doctorado\Glass System\19\Different methods solutios\control\\'
+# folder_path = r'C:\Users\salin\Documents\Doctorado\Glass System\19\Different methods solutios\control\\'
 # folder_path = folder_path.replace('\\','/')
 def get_training_txt_files(folder_path):
   """
@@ -80,7 +80,7 @@ for f,file_name in enumerate(training_txt_files):
     size = np.array(df['workpiece size'].tolist())
     episode = np.array(df['episode'].tolist())
     step = np.array(df['step'].tolist())
-    indexes = np.array(df['index'].tolist())
+    indexes = np.array(df['Segment'].tolist()) #Antes se llamaba index
     action = np.array(df['action'].tolist())
     reward = np.array(df['reward'].tolist())
     states = np.array(df['state'].tolist())
@@ -219,13 +219,16 @@ if post_process_version == 4:
     # episode = np.empty((0,max_episodes))
     step = np.empty((0, ))
     df = pd.DataFrame(step)
+    key_names = [0]
     for i in range(0,max_episodes):
         index,arr = np.where(episodes == i)
         # episode = np.hstack([episode,arr])
         df1 = pd.DataFrame(steps[index])
-        df = pd.concat([df,df1], axis=1)
+        if (df1 != 1).any()[0]:
+            df = pd.concat([df,df1], axis=1)
+            key_names.append(i+1)
         # step = np.hstack([step,steps[index].transpose()])
-    key_names = [f'{i}' for i in range(0, max_episodes+1)]
+    # key_names = [f'{i}' for i in range(0, max_episodes+1)]
     # df = pd.DataFrame(columns=key_names)
     # df1 = pd.DataFrame(step).transpose()
     df.columns = key_names

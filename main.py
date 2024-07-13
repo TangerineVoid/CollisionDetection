@@ -1,18 +1,36 @@
 from init import *
 import tensorflow as tf
-import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# import os
+# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import keras
 from keras import layers
+from keras.callbacks import TensorBoard
 import time
-
+# %tensorboard --logdir=C:/Users/salin/PycharmProjects/CollisionDetection/logs/gradient_tape/2024-04-22_16-17-00/train
 count = 0
-load_trainedModel = False
-save_model = False
+save_tensorboard = False
+
+load_trainedModel = True
+save_model = True
 model_name = 'CDmodel.keras'
+
 run_time = time.time()
 print(f'Starting path planning solution at: {time.time()}')
-while count < 30:
+
+# Gradients saving
+# tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
+if save_tensorboard:
+    current_time = time.strftime("%Y-%m-%d_%H-%M-%S")
+    train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+    test_log_dir = 'logs/gradient_tape/' + current_time + '/test'
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    test_summary_writer = tf.summary.create_file_writer(test_log_dir)
+    train_loss = keras.metrics.Mean('train_loss', dtype=tf.float32)
+    train_accuracy = keras.metrics.SparseCategoricalAccuracy('train_accuracy')
+    test_loss = keras.metrics.Mean('test_loss', dtype=tf.float32)
+    test_accuracy = keras.metrics.SparseCategoricalAccuracy('test_accuracy')
+
+while count < 2:
     print(f"Solving iteration {count}")
     # Initialize variables
     ext_trajectory,env,file_path = initialize()[:3]
@@ -33,7 +51,7 @@ while count < 30:
     num_hidden = 128
     if not load_trainedModel:
         inputs = layers.Input(shape=(num_inputs,))
-        common = layers.Dense(num_hidden, activation="softmax")(inputs)#activation="relu")(inputs)
+        common = layers.Dense(num_hidden, activation="softmax")(inputs) #activation="relu")(inputs)#
         action = layers.Dense(num_actions, activation="softmax")(common)# activation="softmax")(common)
         critic = layers.Dense(1)(common)
         model = keras.Model(inputs=inputs, outputs=[action, critic])
@@ -42,7 +60,7 @@ while count < 30:
             model = keras.models.load_model('CDmodel.keras')
         except:
             inputs = layers.Input(shape=(num_inputs,))
-            common = layers.Dense(num_hidden, activation="softmax")(inputs)  # activation="relu")(inputs)
+            common = layers.Dense(num_hidden, activation="softmax")(inputs) #activation="softmax")(inputs)
             action = layers.Dense(num_actions, activation="softmax")(common)  # activation="softmax")(common)
             critic = layers.Dense(1)(common)
             model = keras.Model(inputs=inputs, outputs=[action, critic])
@@ -58,8 +76,10 @@ while count < 30:
     episode_count = 0
     process_index = env.process_index
     state = env.state
-    process_step = 20
-    angle_step = 10
+    d_theta = 5
+    d_L = 20
+    # process_step = 20
+    # angle_step = 10
 
     # NORMALIZATION VARIABLES
     min_x, min_y, min_z = [min(ext_trajectory[:, 0]), min(ext_trajectory[:, 1]), min(ext_trajectory[:, 2])]
@@ -99,14 +119,15 @@ while count < 30:
                 else:
                     # Sample action from action probability distribution
                     if any(np.isnan(np.array(np.squeeze(action_probs)))):
-                        print('jelp')
+                        print('action probabilities have NaN values')
+                        break
                     action = np.random.choice(num_actions, p=np.squeeze(action_probs))
                 if action == 2:
                   angle_change = 0
                 elif action == 1:
-                  angle_change = -angle_step
+                  angle_change = -d_theta
                 elif action == 0:
-                  angle_change = angle_step
+                  angle_change = d_theta
                 action_probs_history.append(tf.math.log(action_probs[0, action]))
                 # angle = angle_change
                 # angletotal = angletotal + angle
@@ -125,6 +146,7 @@ while count < 30:
                         "reward": reward,
                         "state": np.array(norm_state).tolist(),#state,
                         "TCP": env.mod_TCP.reshape((4, 4)).tolist()  # env.mod_trajectory[0,:].tolist()
+                        # "Loss Value": loss_value
                     }
                     save_data2txt(f"Training_{file_name}_RL-AC_{num_inputs}S{num_actions}A_{date}.txt", data)
                 rewards_history.append(reward)
@@ -174,8 +196,29 @@ while count < 30:
 
             # Backpropagation
             loss_value = sum(actor_losses) + sum(critic_losses)
-            grads = tape.gradient(loss_value, model.trainable_variables)
+            try:
+                grads = tape.gradient(loss_value, model.trainable_variables)
+            except:
+                print('tape.gradient could not be trained')
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+            # Save performance data
+            if save_tensorboard:
+                train_loss(critic_losses)
+                # for a, actionprob in enumerate(action_probs_history):
+                #     try:
+                #         train_accuracy(np.array(action_probs_history), np.array(critic_value_history))
+                #     except:
+                #         break
+                #         print('j')
+                with train_summary_writer.as_default():
+                    tf.summary.scalar('loss', train_loss.result(), step=timestep)
+                    # tf.summary.scalar('accuracy', train_accuracy.result(), step=timestep)
+                    # Reset metrics every epoch
+                train_loss.reset_states()
+                test_loss.reset_states()
+                train_accuracy.reset_states()
+                test_accuracy.reset_states()
 
             # Clear the loss and reward history
             action_probs_history.clear()
@@ -185,7 +228,7 @@ while count < 30:
         # Analyze next step in process
         if collision == 0:
             # rt,state = env.continue_process(process_step)
-            rt,state = env.tool_continue_process(process_step)
+            rt,state = env.tool_continue_process(d_L)
             if save_txt:
                 data = {
                     "episode": episode_count,
@@ -223,4 +266,4 @@ while count < 30:
     # print(f'Training experiment run time = {time.time() - run_time}')
 print(f'Total training run time = {time.time()-run_time}')
 print(f'Finalizing path planning solution at: {time.time()}')
-model.summary()
+# model.summary()

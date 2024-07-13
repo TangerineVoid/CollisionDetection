@@ -43,7 +43,7 @@ class MyApp:
         self.ax.set_title("Environment Simulation")
         self.show_trajectory = False
         self.show_meltpool = False
-        self.movetool = False
+        self.movetool = True
         # Plot system: Laser, Filament, Piece
         # If it is desired to downsamble
         global ds
@@ -203,6 +203,6 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = MyApp(root)
     # test_performance(20,10,500)  # Call every 500 milliseconds (adjust as needed)
-    update_viewAngles(500)
+    # update_viewAngles(500)
     root.mainloop()
 

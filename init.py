@@ -3,6 +3,7 @@ from environment import *
 # import open3d as o3d
 
 def initialize():
+    tool = "pen"
     # REPRESENT PHYSICAL SYSTEM
     # ------------------------------------------------------------------------
     # Workpiece Representation
@@ -11,17 +12,19 @@ def initialize():
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle_C.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Triangle4_C.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Star.txt"
-    file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/HourGlass.txt"
+    # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/HourGlass.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Square.txt"
     # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/spiral_coordinates.txt"
-    # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Truss_HalfBCC.txt"
+
+    # file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/2DPyramid.txt"
+    file_path = "C:/Users/salin/Documents/Doctorado/LaserOcclusion/Truss_HalfBCC.txt"
     # file_path =  "C:/Users/salin/Documents/Doctorado/LaserOcclusion/UnitLattices_HalfBCC.txt"
 
     # Obtain coordinates
     points = parse_file(file_path,'gcode')
     # points = parse_file(file_path,'coordinates')
     # Transform coordinates if needed
-    points = HT(points.transpose(), [0,0,0], [0,0,0], [0,0,0], 1)[0]
+    points = HT(points.transpose(), [0,0,0], [0,0,0], [0,0,0], 4)[0] #Star w/scale 100 #2DPyramid w/scale 4
     # Increase coordinates resolution
     step_value = 0.1 #mm
     points[:,2] = points[:,2]*-1
@@ -34,16 +37,32 @@ def initialize():
     pcd.paint_uniform_color(np.array([0, 128, 255])/255)
     voxel_size = 0.1
 
-    # ------------------------------------------------------------------------
-    # Laser Representation
-    # ------------------------------------------------------------------------
-    # initialize laser pointcloud instance
-    laser = np.array([[0,0,0],[-10,0,3.63970234266202]])#np.array([[0,0,0],[-10,0,5]])
-    ext_laser= extend_gcode(np.linalg.norm(laser[1] - laser[0])/50, laser)
-    ext_laser = generate_point_cloud_from_coordinates(ext_laser,0.1,90)
-    lcd = o3d.geometry.PointCloud()
-    # ------------------------------------------------------------------------
-    lcd.points = o3d.utility.Vector3dVector(np.array(ext_laser[:,:3]))
+    # To save interpolated geometry:
+    # file_name = file_path.split("/")[-1].split(".")[0]
+    # df = pd.DataFrame(ext_trajectory)
+    # df.to_csv(f'{file_name}.csv', index=False)
+    # print('saved interpoladed geometry')
+
+    if tool == "pen":
+        # ------------------------------------------------------------------------
+        # 3D Pen Representation
+        # ------------------------------------------------------------------------
+        filename = "C:/Users/salin/Documents/Doctorado/Glass System/CAD/3DPenDraftv1.stl"
+        lcd = o3d.io.read_triangle_mesh(filename)
+        # o3d.visualization.draw_geometries([lcd])
+        lcd = o3d.geometry.TriangleMesh.sample_points_uniformly(lcd, number_of_points=50000)
+        # o3d.visualization.draw_geometries([pcd])
+
+    # # ------------------------------------------------------------------------
+    # # Laser Representation
+    # # ------------------------------------------------------------------------
+    # # initialize laser pointcloud instance
+    # laser = np.array([[0,0,0],[-10,0,3.63970234266202]])#np.array([[0,0,0],[-10,0,5]])
+    # ext_laser= extend_gcode(np.linalg.norm(laser[1] - laser[0])/50, laser)
+    # ext_laser = generate_point_cloud_from_coordinates(ext_laser,0.1,90)
+    # lcd = o3d.geometry.PointCloud()
+    # # ------------------------------------------------------------------------
+    # lcd.points = o3d.utility.Vector3dVector(np.array(ext_laser[:,:3]))
     lcd.paint_uniform_color(np.array([255, 0, 0])/255)
 
     # ------------------------------------------------------------------------

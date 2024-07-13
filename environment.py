@@ -173,9 +173,10 @@ class Environment:
             # the episode, this deformed the geometry and failed to find a collision
             self.last_index = self.process_index
             self.process_index = step + self.process_index
+            # print(f'from {self.last_index} to {self.process_index}')
             if self.process_index < 0:
                 self.process_index = 0
-            if self.process_index > np.shape(self.mod_trajectory)[0]:
+            if self.process_index >= np.shape(self.mod_trajectory)[0]:
                 self.process_index = np.shape(self.mod_trajectory)[0] - 1
                 print("It has been reached the end of the process")
                 # Update state
@@ -188,7 +189,11 @@ class Environment:
                 return 0, self.state
             # Identify which indexes have the desired process index
             # Select the last index so we select all the elements
-            idx = np.where(self.index_array == self.process_index)[0][-1]
+            try:
+                idx = np.where(self.index_array == self.process_index)[0][-1]
+            except:
+                print('jelp')
+                pass
             # Calculate translation
             dx = self.mod_trajectory[self.process_index, 0] - self.mod_trajectory[self.last_index, 0]
             dy = self.mod_trajectory[self.process_index, 1] - self.mod_trajectory[self.last_index, 1]
